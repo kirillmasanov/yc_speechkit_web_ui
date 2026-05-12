@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+CLAUDE.md
+.claude/
+images/
+README.md
+README_en.md
+LICENSE
+**/.venv
+**/__pycache__
+**/*.pyc

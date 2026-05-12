@@ -1,0 +1,16 @@
+[project]
+name = "speechkit-web-ui"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "aiofiles",
+    "httpx",
+    "grpcio",
+    "grpcio-tools",
+    "protobuf",
+    "yandexcloud",
+    "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.28",
+]

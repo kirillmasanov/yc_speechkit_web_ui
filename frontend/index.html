@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>SpeechKit Web UI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <a class="logo" href="/">
+            <div class="logo-icon">S</div>
+            <div class="logo-text">SpeechKit<span>Web UI</span></div>
+        </a>
+    </header>
+
+    <div class="container">
+        
+        <!-- Simple tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="textToSpeech">Синтез речи</button>
+            <button class="tab" data-tab="speechToText">Распознавание речи</button>
+            <button class="tab stream-only" data-tab="streamRecognition">Потоковое распознавание</button>
+        </div>
+        
+        <!-- Tab content -->
+        <div class="tab-content active" id="textToSpeech">
+            <div class="tab-description">
+                <p>Синтез речи в Yandex SpeechKit позволяет озвучить любой текст на нескольких языках.</p>
+                <p>Введите текст, укажите голос и амплуа и нажмите кнопку <strong>Отправить</strong>. Результат синтеза можно <strong>Прослушать</strong> или <strong>Скачать</strong>.</p>
+            </div>
+
+            <div class="field-annotation">Текст</div>
+            <textarea id="textInput" rows="3" maxlength="5000"></textarea>
+            <div id="charCount">0/5000</div>
+
+            <div style="margin-top: 8px; display: flex; gap: 6px;">
+                <button id="exampleBtn1" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Пример 1</button>
+                <button id="exampleBtn2" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Пример 2</button>
+                <button id="exampleBtn3" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Пример 3</button>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <div class="field-annotation">TTS-разметка текста<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">TTS-разметка дает возможность управлять синтезом речи при помощи специальных символов и SIL-тегов. Это позволяет сделать синтезированную речь более естественной.</span></a></div>
+                <button id="insertPauseTiny" class="btn-secondary" title="Контекстная пауза, маленькая">&lt;[tiny]&gt;</button>
+                <button id="insertPauseSmall" class="btn-secondary" title="Контекстная пауза, небольшая">&lt;[small]&gt;</button>
+                <button id="insertPauseMedium" class="btn-secondary" title="Контекстная пауза, средняя">&lt;[medium]&gt;</button>
+                <button id="insertPauseLarge" class="btn-secondary" title="Контекстная пауза, большая">&lt;[large]&gt;</button>
+                <button id="insertPauseHuge" class="btn-secondary" title="Контекстная пауза, огромная">&lt;[huge]&gt;</button>
+                <button id="insertPauseMs" class="btn-secondary" title="Явно указать паузу между предложениями, в миллисекундах">sil&lt;[500]&gt;</button>
+                <button id="insertStress" class="btn-secondary" title="Поставить ударение">+</button>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <div class="field-annotation">Язык, голос и амплуа<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/voices.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете выбрать язык и голос, который будет озвучивать ваш текст. Каждый голос соответствует модели, обученной на речи диктора. Амплуа — это характер произношения для одного и того же диктора. Для разных голосов доступны разные наборы амплуа.</span></a></div>
+                <div class="custom-dropdown">
+                    <button id="ttsLangDropdown" title="Язык">Русский</button>
+                    <div class="dropdown-content" id="ttsLangDropdownContent"></div>
+                </div>
+
+                <div class="custom-dropdown">
+                    <button id="voicesDropdown" title="Голос">Голос</button>
+                    <div class="dropdown-content" id="voicesDropdownContent"></div>
+                </div>
+                
+                <div class="custom-dropdown">
+                    <button id="rolesDropdown" title="Амплуа">Амплуа</button>
+                    <div class="dropdown-content" id="rolesDropdownContent"></div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <div class="field-annotation">Формат файла и нормализация<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/#volume" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете выбрать формат аудиофайла из списка поддерживаемых: MP3, OGG, LPCM (WAV). Также можно выбрать тип нормализации громкости LUFS или пиковая нормализация MAX_PEAK. Параметры нормализации могут потребоваться, если синтез SpeechKit используется с другими источниками звука.</span></a></div>
+                <div class="custom-dropdown">
+                    <button id="formatDropdown" title="Формат аудио">WAV</button>
+                    <div class="dropdown-content" id="formatDropdownContent"></div>
+                </div>
+                
+                <div class="custom-dropdown">
+                    <button id="normDropdown" title="Нормализация громкости">LUFS</button>
+                    <div class="dropdown-content" id="normDropdownContent"></div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px;" class="sliders-section">
+                <div class="field-annotation">Характеристики синтезируемой речи<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/#settings" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете ускорить или замедлить синтезируемую речь, изменить уровень нормализации (или громкости) и изменить тембр.</span></a></div>
+                <div class="slider-group">
+                    <label for="speedSlider">Скорость речи: <span id="speedValue">1.0</span></label>
+                    <input type="range" id="speedSlider" min="0.1" max="3.0" step="0.1" value="1.0">
+                </div>
+                <div class="slider-group">
+                    <label for="pitchSlider">Тембр голоса: <span id="pitchValue">0</span> Hz</label>
+                    <input type="range" id="pitchSlider" min="-1000" max="1000" step="10" value="0">
+                </div>
+                <div class="slider-group">
+                    <label for="volumeSlider">Уровень нормализации (громкость): <span id="volumeValue">-19</span></label>
+                    <input type="range" id="volumeSlider" min="-145" max="-0.1" step="0.1" value="-19">
+                </div>
+                <div style="margin-top: 8px;">
+                    <button id="resetSlidersBtn" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;">Сбросить настройки</button>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px;" id="ttsButtonRow">
+                <button id="sendButton">Отправить</button>
+                <button id="processing" disabled>
+                    <span class="spinner"></span>
+                    <span>Обработка запроса...</span>
+                </button>
+                <span id="playbackButtonContainer"></span>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="speechToText">
+            <div class="tab-description">
+                <p>Распознавание речи (speech-to-text — STT) — это процесс преобразования речи в текст.</p>
+                <p>Загрузите аудиофайл и нажмите <strong>Отправить</strong>.</p>
+            </div>
+
+            <form id="audioUploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <div class="field-annotation">Загрузка аудиофайла<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/formats.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет распознавать и синтезировать аудио в форматах: LPCM, OggOpus, MP3</span></a></div>
+                    <input type="file" id="fileInput" name="file">
+                    <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
+                        <span style="font-size: 0.8em; color: #7f8c8d;">или выберите пример:</span>
+                        <button type="button" id="sttExampleMono" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> example-mono.mp3</button>
+                        <button type="button" id="sttExampleStereo" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> example-stereo.mp3</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="field-annotation">Язык<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/models#languages" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Сервис SpeechKit в ходе распознавания речи автоматически определяет язык в каждом отдельном предложении. Также язык можно указать вручную.</span></a></div>
+                    <select id="languageSelect" name="lang">
+                        <option value="ru-RU">Русский</option>
+                        <option value="auto">Автоматически</option>
+                        <option value="en-US">Английский</option>
+                        <option value="kk-KZ">Казахский</option>
+                        <option value="tr-TR">Турецкий</option>
+                        <option value="uz-UZ">Узбекский</option>
+                        <option value="de-DE">Немецкий</option>
+                        <option value="es-ES">Испанский</option>
+                        <option value="fr-FR">Французский</option>
+                        <option value="it-IT">Итальянский</option>
+                        <option value="pl-PL">Польский</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <div class="field-annotation">Определение дикторов<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit в результатах распознавания может указывать, какому из дикторов принадлежит каждая распознанная фраза. Определение дикторов работает для распознавания в режиме FULL_DATA только для монозаписей. В результатах распознавания может быть не больше двух дикторов.</span></a></div>
+                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+                        <input type="checkbox" id="speakerLabelingToggle">
+                        Включить определение дикторов (только моно)
+                    </label>
+                </div>
+
+                <div class="form-group hidden" id="rateForm">
+                    <div class="field-annotation">Частота дискретизации (кГц)<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/formats#lpcm" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">В зависимости от используемой дискретизации WAV-файла, выберите значение совпадающее с параметрами файла.</span></a></div>
+                    <input type="number" id="sampleRateInput" name="sampleRate" value="48000">
+                </div>
+                
+                <div class="form-group">
+                    <div class="field-annotation">Промпт модели<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет не только распознавать аудио, но и обрабатывать результаты распознавания с помощью больших генеративных моделей. Таким образом можно автоматизировать обработку результатов распознавания речи, например, сразу же получить краткий пересказ распознанного аудио, на основе аудио заполнить определенные поля в CRM-системе или перевести диалог на английский язык.</span></a></div>
+                    <textarea id="summaryInstructionInput" name="summaryInstruction" rows="3" style="font-size: 0.85rem;">Кратко суммаризируй диалог и подведи итог.</textarea>
+                </div>
+                
+                <button id="sendButtonStt" type="submit">Отправить</button>
+                <button id="processingStt" disabled style="display: none;">
+                    <span class="spinner"></span>
+                    <span>Обработка запроса...</span>
+                </button>
+            </form>
+            
+            <div class="field-annotation" style="margin-top: 20px;">Диалог<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit в результатах распознавания может указывать, какому из дикторов принадлежит каждая распознанная фраза.</span></a></div>
+            <div id="dialogueSection" class="dialogue-container"></div>
+
+            <div class="field-annotation" style="margin-top: 20px;">Результат обработки LLM<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Результат обработки зависит от промпта. В промпте можно запросить необходимую схему, которой должен соответствовать ответ модели.</span></a></div>
+            <div id="summarySection" class="analysis-section" style="display: block;"></div>
+
+            <div class="field-annotation collapsible" style="margin-top: 20px;" id="toggleSpeakerBtn">
+                <span class="collapse-arrow"></span> Статистика участников<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#statistics" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет анализировать диалоги и речь отдельных участников и подсчитывать статистики для каждого участника и для диалога в целом. Результаты анализа содержат дискретные характеристики аудио и описательные статистики распределений этих значений.
+
+Для каждого участника диалога можно определить: скорость и длительность речи; длительность пауз; количество и размеры фраз.</span></a>
+            </div>
+            <div id="speakerAnalysisSection" class="analysis-section"></div>
+            
+            <div class="field-annotation collapsible" style="margin-top: 20px;" id="toggleConversationBtn">
+                <span class="collapse-arrow"></span> Статистика диалога<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#statistics" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет анализировать диалоги и речь отдельных участников и подсчитывать статистики для каждого участника и для диалога в целом. Результаты анализа содержат дискретные характеристики аудио и описательные статистики распределений этих значений.
+
+Для диалога в целом доступны: длительность одновременной речи и пауз; количество и временные метки перебиваний.</span></a>
+            </div>
+            <div id="conversationAnalysisSection" class="analysis-section"></div>
+
+            <div class="field-annotation collapsible" style="margin-top: 20px;" id="toggleJsonBtn">
+                <span class="collapse-arrow"></span> Ответ в формате JSON
+            </div>
+            <div id="rawJsonSection" style="display: none;">
+                <div class="result-container">
+                    <div id="resultStt" class="bg-light text-monospace text-break" style="max-height: 500px; overflow-y: auto;"></div>
+                    <button class="copy-btn" id="copyJsonBtn" title="Скопировать"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 14H19C20.1046 14 21 13.1046 21 12V5C21 3.89543 20.1046 3 19 3H12C10.8954 3 10 3.89543 10 5V6.5M5 10H12C13.1046 10 14 10.8954 14 12V19C14 20.1046 13.1046 21 12 21H5C3.89543 21 3 20.1046 3 19V12C3 10.8954 3.89543 10 5 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="streamRecognition">
+            <div class="tab-description">
+                <p>Потоковый режим позволяет одновременно отправлять аудио на распознавание и получать результаты распознавания в рамках одного соединения.</p>
+                <p>Нажмите <strong>Начать запись</strong> и говорите в микрофон, чтобы начать потоковое распознавание.</p>
+            </div>
+            
+            <div class="form-group">
+                <div class="field-annotation">Промпт модели<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Промпт для обработки результатов распознавания с помощью LLM. Результат суммаризации будет получен после остановки записи.</span></a></div>
+                <textarea id="streamSummaryInstructionInput" rows="3" style="font-size: 0.85rem;">Кратко суммаризируй диалог и подведи итог.</textarea>
+            </div>
+
+            <div class="form-group">
+                <div class="field-annotation">Язык<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/models#languages" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Выберите язык для потокового распознавания</span></a></div>
+                <select id="streamLanguageSelect">
+                    <option value="ru-RU">Русский</option>
+                    <option value="en-US">Английский</option>
+                    <option value="kk-KZ">Казахский</option>
+                    <option value="tr-TR">Турецкий</option>
+                    <option value="uz-UZ">Узбекский</option>
+                    <option value="de-DE">Немецкий</option>
+                    <option value="es-ES">Испанский</option>
+                    <option value="fr-FR">Французский</option>
+                    <option value="it-IT">Итальянский</option>
+                    <option value="pl-PL">Польский</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <div class="field-annotation">Классификаторы аудио<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#classifier" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Классификаторы могут применяться к промежуточным и окончательным результатам распознавания. Поддерживается только для русского языка.</span></a></div>
+                <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" id="streamClassifiersToggle">
+                    Включить классификаторы (только русский)
+                </label>
+            </div>
+
+            <div class="form-group">
+                <div class="field-annotation">Определение конца фразы<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/eou" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">В процессе потокового распознавания сервер SpeechKit возвращает не всю фразу целиком, а результаты распознавания частей фразы. SpeechKit возвращает законченную фразу только после определения конца фразы. Управляя ожидаемой длительностью пауз между словами в рамках одной фразы (в миллисекундах) – мы можем влиять на определение конца фразы.</span></a></div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="range" id="eouPauseSlider" min="100" max="3000" step="100" value="500" style="flex: 1;">
+                    <span id="eouPauseValue" style="font-size: 0.85rem; min-width: 55px; text-align: right;">500 мс</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <button id="startStreamBtn" class="btn-success">Начать запись</button>
+                <button id="stopStreamBtn" class="btn-danger" disabled>Остановить</button>
+                <button id="clearStreamBtn" class="btn-secondary">Очистить</button>
+            </div>
+            
+            <div class="field-annotation" style="margin-top: 20px;">Результаты распознавания<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/streaming.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">В потоковом режиме вы можете получать промежуточные результаты распознавания, когда говорящий еще не закончил фразу. После паузы SpeechKit вернет финальные результаты и начнет распознавание новой фразы.</span></a></div>
+            <div id="streamResults" style="margin-top: 10px;">
+                <div id="finalText"></div>
+                <div id="partialText" style="color: #7f8c8d; font-style: italic;"></div>
+            </div>
+
+            <div class="field-annotation" style="margin-top: 20px;">Результат обработки LLM<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Результат суммаризации потокового распознавания. Данные поступают после завершения записи.</span></a></div>
+            <div id="streamSummarySection" class="analysis-section" style="display: block;"></div>
+        </div>
+    </div>
+
+    <footer>
+        <a href="https://aistudio.yandex.ru/docs/ru/speechkit/overview.html" target="_blank" rel="noopener noreferrer">Документация SpeechKit</a>
+        <a href="https://aistudio.yandex.ru/docs/ru/speechkit/pricing.html" target="_blank" rel="noopener noreferrer">Тарификация SpeechKit</a>
+    </footer>
+    
+    <script src="script.js"></script>
+</body>
+</html>
