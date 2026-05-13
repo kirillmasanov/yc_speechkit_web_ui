@@ -2,25 +2,28 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SpeechKit Web UI</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <a class="logo" href="/">
-            <div class="logo-icon">S</div>
+            <div class="logo-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 32 32">
+                    <path fill="#fff" d="M23.858 27.431c-2.813 1.925-6.204 1.825-13.01 1.866l-5.403-.01 2.734-7.363 4.05-.007c3.295.007 5.26-.243 6.86-1.387 1.555-1.114 2.503-2.828 3.642-5.92l1.415-3.794L32 10.812l-1.885 5.049c-2.39 6.388-3.475 9.602-6.257 11.57M8.142 4.608c2.813-1.925 6.204-1.825 13.01-1.865l5.403.009-2.733 7.363-4.051.008c-3.294-.008-5.26.242-6.86 1.386-1.555 1.115-2.503 2.828-3.642 5.92l-1.415 3.795L0 21.227l1.885-5.048C4.275 9.79 5.36 6.576 8.142 4.609"/>
+                </svg>
+            </div>
             <div class="logo-text">SpeechKit<span>Web UI</span></div>
         </a>
     </header>
 
     <div class="container">
         
-        <!-- Simple tabs -->
-        <div class="tabs">
-            <button class="tab active" data-tab="textToSpeech">Синтез речи</button>
-            <button class="tab" data-tab="speechToText">Распознавание речи</button>
-            <button class="tab stream-only" data-tab="streamRecognition">Потоковое распознавание</button>
-        </div>
+        <!-- Tabs -->
+        <button class="tab active" data-tab="textToSpeech">Синтез речи</button>
+        <button class="tab" data-tab="speechToText">Распознавание речи</button>
+        <button class="tab stream-only" data-tab="streamRecognition">Потоковое распознавание</button>
         
         <!-- Tab content -->
         <div class="tab-content active" id="textToSpeech">
@@ -29,59 +32,95 @@
                 <p>Введите текст, укажите голос и амплуа и нажмите кнопку <strong>Отправить</strong>. Результат синтеза можно <strong>Прослушать</strong> или <strong>Скачать</strong>.</p>
             </div>
 
-            <div class="field-annotation">Текст</div>
-            <textarea id="textInput" rows="3" maxlength="5000"></textarea>
+            <div class="field-header">
+                <span class="field-annotation">Текст</span>
+                <div class="example-btns">
+                    <button id="exampleBtn1" class="example-btn">Пример 1</button>
+                    <button id="exampleBtn2" class="example-btn">Пример 2</button>
+                    <button id="exampleBtn3" class="example-btn">Пример 3</button>
+                </div>
+            </div>
+            <div class="textarea-wrap">
+                <textarea id="textInput" rows="5" maxlength="5000">Привет!
+Я Яндекс Спичк+ит.
+Я могу превратить любой текст в речь.
+Теперь и вы - можете!</textarea>
+                <button id="clearTextBtn" class="clear-btn" title="Очистить">✕</button>
+            </div>
             <div id="charCount">0/5000</div>
+            
+            <div class="tts-markup">
+                <div class="field-annotation" style="margin-bottom: 10px; margin-top: 16px; display: flex; align-items: center; gap: 8px;">TTS-разметка текста<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">TTS-разметка дает возможность управлять синтезом речи при помощи специальных символов и SIL-тегов. Это позволяет сделать синтезированную речь более естественной.</span></a><a href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer" class="tts-markup-link" style="font-size: 11px; text-transform: none; letter-spacing: 0; font-weight: 400;">Документация</a></div>
 
-            <div style="margin-top: 8px; display: flex; gap: 6px;">
-                <button id="exampleBtn1" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Пример 1</button>
-                <button id="exampleBtn2" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Пример 2</button>
-                <button id="exampleBtn3" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Пример 3</button>
-            </div>
-            
-            <div style="margin-top: 15px;">
-                <div class="field-annotation">TTS-разметка текста<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">TTS-разметка дает возможность управлять синтезом речи при помощи специальных символов и SIL-тегов. Это позволяет сделать синтезированную речь более естественной.</span></a></div>
-                <button id="insertPauseTiny" class="btn-secondary" title="Контекстная пауза, маленькая">&lt;[tiny]&gt;</button>
-                <button id="insertPauseSmall" class="btn-secondary" title="Контекстная пауза, небольшая">&lt;[small]&gt;</button>
-                <button id="insertPauseMedium" class="btn-secondary" title="Контекстная пауза, средняя">&lt;[medium]&gt;</button>
-                <button id="insertPauseLarge" class="btn-secondary" title="Контекстная пауза, большая">&lt;[large]&gt;</button>
-                <button id="insertPauseHuge" class="btn-secondary" title="Контекстная пауза, огромная">&lt;[huge]&gt;</button>
-                <button id="insertPauseMs" class="btn-secondary" title="Явно указать паузу между предложениями, в миллисекундах">sil&lt;[500]&gt;</button>
-                <button id="insertStress" class="btn-secondary" title="Поставить ударение">+</button>
-            </div>
-            
-            <div style="margin-top: 15px;">
-                <div class="field-annotation">Язык, голос и амплуа<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/voices.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете выбрать язык и голос, который будет озвучивать ваш текст. Каждый голос соответствует модели, обученной на речи диктора. Амплуа — это характер произношения для одного и того же диктора. Для разных голосов доступны разные наборы амплуа.</span></a></div>
-                <div class="custom-dropdown">
-                    <button id="ttsLangDropdown" title="Язык">Русский</button>
-                    <div class="dropdown-content" id="ttsLangDropdownContent"></div>
+                <div class="tts-markup-row">
+                    <span class="tts-markup-sub">Паузы<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Разметка пауз служит только подсказкой для синтеза и срабатывает только внутри текста. Даже указывая конкретную длительность пауз, вы не сможете сгенерировать файл с тишиной. Паузы в начале и в конце предложения игнорируются.</span></a>:</span>
+                    <button id="insertPauseTiny"   class="markup-btn">&lt;[tiny]&gt;</button>
+                    <button id="insertPauseSmall"  class="markup-btn">&lt;[small]&gt;</button>
+                    <button id="insertPauseMedium" class="markup-btn">&lt;[medium]&gt;</button>
+                    <button id="insertPauseLarge"  class="markup-btn">&lt;[large]&gt;</button>
+                    <button id="insertPauseHuge"   class="markup-btn">&lt;[huge]&gt;</button>
+                    <button id="insertPauseMs"     class="markup-btn">sil&lt;[t]&gt;</button>
+                    <span class="tts-markup-hint">t — мс</span>
                 </div>
+                <div class="tts-markup-row">
+                    <span class="tts-markup-sub">Акцент на слове:</span>
+                    <button id="insertAccent" class="markup-btn">** **</button>
+                </div>
+                <div class="tts-markup-row">
+                    <span class="tts-markup-sub">Ударение<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Используйте символ + перед ударной гласной, чтобы уточнить корректный вариант произношения слова.</span></a>:</span>
+                    <button id="insertStress" class="markup-btn">+</button>
+                    <span class="tts-markup-hint">перед гласной</span>
+                </div>
+                <div class="tts-markup-row">
+                    <span class="tts-markup-sub">Фонемы<a class="help-link" href="https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-supported-phonemes" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Используйте выделение блоком [[]], чтобы контролировать правильность произношения с помощью фонем.</span></a>:</span>
+                    <button id="insertPhoneme" class="markup-btn">[[]]</button>
+                    <a href="https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-supported-phonemes" target="_blank" rel="noopener noreferrer" class="tts-markup-link">Все фонемы</a>
+                </div>
+                <hr class="tts-markup-divider">
+            </div>
+            
+            <div style="margin-top: 15px; display: flex; gap: 20px; align-items: flex-start;">
+                <div>
+                    <div class="field-annotation">Язык</div>
+                    <div class="custom-dropdown" style="margin: 0;">
+                        <button id="ttsLangDropdown">Русский</button>
+                        <div class="dropdown-content" id="ttsLangDropdownContent"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="field-annotation">Голос<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/voices.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Каждый голос соответствует модели, обученной на речи диктора. Для разных голосов доступны разные наборы амплуа.</span></a></div>
+                    <div class="custom-dropdown" style="margin: 0;">
+                        <button id="voicesDropdown">Голос</button>
+                        <div class="dropdown-content" id="voicesDropdownContent"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="field-annotation">Амплуа<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/voices.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Амплуа — характер произношения для одного и того же диктора. Для разных голосов доступны разные наборы амплуа.</span></a></div>
+                    <div class="custom-dropdown" style="margin: 0;">
+                        <button id="rolesDropdown">Амплуа</button>
+                        <div class="dropdown-content" id="rolesDropdownContent"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <hr class="section-divider">
 
-                <div class="custom-dropdown">
-                    <button id="voicesDropdown" title="Голос">Голос</button>
-                    <div class="dropdown-content" id="voicesDropdownContent"></div>
-                </div>
-                
-                <div class="custom-dropdown">
-                    <button id="rolesDropdown" title="Амплуа">Амплуа</button>
-                    <div class="dropdown-content" id="rolesDropdownContent"></div>
-                </div>
-            </div>
-            
             <div style="margin-top: 15px;">
                 <div class="field-annotation">Формат файла и нормализация<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/#volume" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете выбрать формат аудиофайла из списка поддерживаемых: MP3, OGG, LPCM (WAV). Также можно выбрать тип нормализации громкости LUFS или пиковая нормализация MAX_PEAK. Параметры нормализации могут потребоваться, если синтез SpeechKit используется с другими источниками звука.</span></a></div>
                 <div class="custom-dropdown">
                     <button id="formatDropdown" title="Формат аудио">WAV</button>
                     <div class="dropdown-content" id="formatDropdownContent"></div>
                 </div>
-                
+
                 <div class="custom-dropdown">
                     <button id="normDropdown" title="Нормализация громкости">LUFS</button>
                     <div class="dropdown-content" id="normDropdownContent"></div>
                 </div>
             </div>
-            
-            <div style="margin-top: 15px;" class="sliders-section">
+
+            <hr class="section-divider">
+
+            <div style="margin-top: 15px;">
                 <div class="field-annotation">Характеристики синтезируемой речи<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/#settings" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете ускорить или замедлить синтезируемую речь, изменить уровень нормализации (или громкости) и изменить тембр.</span></a></div>
                 <div class="slider-group">
                     <label for="speedSlider">Скорость речи: <span id="speedValue">1.0</span></label>

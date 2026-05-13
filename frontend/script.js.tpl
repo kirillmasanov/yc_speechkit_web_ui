@@ -324,17 +324,37 @@ document.addEventListener('DOMContentLoaded', function() {
     var textArea = document.getElementById('textInput');
     var charCount = document.getElementById('charCount');
     
+    // Clear button
+    var clearTextBtn = document.getElementById('clearTextBtn');
+
+    function updateClearBtn() {
+        if (textArea.value.length > 0) {
+            clearTextBtn.classList.add('visible');
+        } else {
+            clearTextBtn.classList.remove('visible');
+        }
+    }
+
+    clearTextBtn.addEventListener('click', function() {
+        textArea.value = '';
+        charCount.textContent = '0/' + textArea.getAttribute('maxlength');
+        updateClearBtn();
+        textArea.focus();
+    });
+
     // Update character count when text changes
     textArea.addEventListener('input', function() {
         var currentLength = textArea.value.length;
         var maxLength = textArea.getAttribute('maxlength');
         charCount.textContent = currentLength + '/' + maxLength;
+        updateClearBtn();
     });
-    
+
     // Initialize character count
     var currentLength = textArea.value.length;
     var maxLength = textArea.getAttribute('maxlength');
     charCount.textContent = currentLength + '/' + maxLength;
+    updateClearBtn();
     
     // TTS formatting buttons
     function insertText(textToInsert) {
@@ -374,11 +394,35 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     document.getElementById('insertPauseMs').addEventListener('click', function() {
-        insertText(' sil<[500]> ');
+        insertText('sil<[500]>');
     });
-    
+
+    document.getElementById('insertAccent').addEventListener('click', function() {
+        var start = textArea.selectionStart;
+        var end = textArea.selectionEnd;
+        var selected = textArea.value.substring(start, end);
+        var wrapped = '**' + (selected || ' ') + '**';
+        textArea.value = textArea.value.substring(0, start) + wrapped + textArea.value.substring(end);
+        var cursor = selected ? start + wrapped.length : start + 2;
+        textArea.focus();
+        textArea.selectionStart = cursor;
+        textArea.selectionEnd = cursor;
+        charCount.textContent = textArea.value.length + '/' + textArea.getAttribute('maxlength');
+        updateClearBtn();
+    });
+
     document.getElementById('insertStress').addEventListener('click', function() {
         insertText('+');
+    });
+
+    document.getElementById('insertPhoneme').addEventListener('click', function() {
+        var start = textArea.selectionStart;
+        textArea.value = textArea.value.substring(0, start) + '[[]]' + textArea.value.substring(start);
+        textArea.focus();
+        textArea.selectionStart = start + 2;
+        textArea.selectionEnd = start + 2;
+        charCount.textContent = textArea.value.length + '/' + textArea.getAttribute('maxlength');
+        updateClearBtn();
     });
     
     // Send TTS request
