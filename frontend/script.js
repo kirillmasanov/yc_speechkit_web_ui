@@ -1,6 +1,11 @@
 // Check if STREAM feature is enabled (only in local deployment)
 const STREAM_ENABLED = true;
 
+// Base URL for all API calls — derived from the current page location so the
+// app works both at the root (http://localhost:8080/) and under a path prefix
+// behind a reverse proxy (https://example.com/yc-speechkit-web-ui/).
+const API_BASE = new URL('.', document.baseURI).href;
+
 // Voices and roles dictionary (loaded from voices.json)
 let voicesData = {};
 let voices = {};
@@ -638,7 +643,7 @@ document.addEventListener('DOMContentLoaded', function() {
             sendBtn.disabled = false;
         }
 
-        fetch('/tts', {
+        fetch(API_BASE + 'tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -819,7 +824,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fd.append('rate', rate);
             fd.append('summaryInstruction', document.getElementById('summaryInstructionInput').value);
             fd.append('speakerLabeling', document.getElementById('speakerLabelingToggle').checked ? 'true' : 'false');
-            return fetch('/stt', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+            return fetch(API_BASE + 'stt', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
         }
 
         if (hasExample) {
@@ -857,7 +862,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Check STT operation status
 function checkOperationStatus(operationId) {
     function checkStatus() {
-        fetch(`/operation?operationId=` + operationId)
+        fetch(API_BASE + 'operation?operationId=' + operationId)
             .then(response => response.json())
             .then(response => {
                 if (response.done === "true") {
@@ -1386,9 +1391,9 @@ async function startStreaming() {
         // Clear previous summary
         document.getElementById('streamSummarySection').innerHTML = '';
         
-        // Create WebSocket connection
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let wsUrl = wsProtocol + '//' + window.location.host + '/stream?lang=' + lang;
+        // Create WebSocket connection — derive ws(s):// URL from API_BASE so
+        // the path prefix is preserved when running behind a reverse proxy.
+        let wsUrl = API_BASE.replace(/^http/, 'ws') + 'stream?lang=' + lang;
         if (streamSummaryInstruction) {
             wsUrl += '&summaryInstruction=' + encodeURIComponent(streamSummaryInstruction);
         }
