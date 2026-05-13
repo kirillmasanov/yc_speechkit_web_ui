@@ -1,33 +1,43 @@
 {
   "ru-RU": {
-    "jane": ["neutral", "good", "evil"],
-    "oksana": ["neutral"],
-    "alyss": ["neutral"],
-    "omazh": ["neutral"],
-    "zahar": ["neutral"],
-    "ermil": ["neutral", "good", "evil"],
-    "filipp": ["neutral"],
-    "madirus": ["neutral"],
-    "masha": ["neutral", "good", "evil"]
+    "marina":    ["neutral", "whisper", "friendly"],
+    "alena":     ["neutral", "good"],
+    "jane":      ["neutral", "good", "evil"],
+    "dasha":     ["neutral", "good", "friendly"],
+    "julia":     ["neutral", "strict"],
+    "lera":      ["neutral", "friendly"],
+    "masha":     ["good", "strict", "friendly"],
+    "alexander": ["neutral", "good"],
+    "kirill":    ["neutral", "strict", "good"],
+    "anton":     ["neutral", "good"],
+    "ermil":     ["neutral", "good"],
+    "zahar":     ["neutral", "good"],
+    "filipp":    ["—"],
+    "omazh":     ["neutral", "evil"],
+    "madi_ru":   ["—"],
+    "saule_ru":  ["neutral", "strict", "whisper"],
+    "zamira_ru": ["neutral", "strict", "friendly"],
+    "zhanar_ru": ["neutral", "strict", "friendly"],
+    "yulduz_ru": ["neutral", "strict", "friendly", "whisper"]
   },
   "en-US": {
-    "john": ["neutral"],
-    "nick": ["neutral"],
-    "eric": ["neutral"]
+    "john": ["—"]
   },
-  "kz-KZ": {
-    "zhanar": ["neutral", "good", "evil"],
-    "saule": ["neutral", "good"],
-    "madi": ["neutral"]
+  "kk-KZ": {
+    "amira":  ["—"],
+    "madi":   ["—"],
+    "saule":  ["neutral", "strict"],
+    "zhanar": ["neutral", "friendly"]
   },
   "uz-UZ": {
-    "zamira": ["neutral", "good"],
-    "yulduz": ["neutral", "good"]
-  },
-  "tr-TR": {
-    "filiz": ["neutral"]
+    "nigora": ["—"],
+    "zamira": ["neutral", "strict", "friendly"],
+    "yulduz": ["neutral", "strict", "friendly", "whisper"]
   },
   "de-DE": {
-    "lea": ["neutral"]
+    "lea": ["—"]
+  },
+  "he-IL": {
+    "naomi": ["modern", "classic"]
   }
 }

@@ -21,6 +21,72 @@ let currentNormType = 'LUFS';
 // STT example selection
 let sttExampleKey = null;
 
+// Currently playing TTS audio (stopped before each new request/playback)
+let currentAudio = null;
+
+// Last synthesized audio URL and the text/params it was generated from
+var currentAudioUrl = null;
+var lastSynthesizedText = null;
+var lastSynthesizedParams = null;
+
+var ICON_PLAY  = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+var ICON_PAUSE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/></svg>';
+var ICON_VOL   = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+var ICON_MUTE  = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+
+function updateTtsUI() {
+    var hasAudio = !!currentAudioUrl;
+    var textInput = document.getElementById('textInput');
+    var textDirty = hasAudio && textInput && (textInput.value !== lastSynthesizedText);
+    var paramsDirty = hasAudio && lastSynthesizedParams && (
+        currentVoice     !== lastSynthesizedParams.voice  ||
+        currentRole      !== lastSynthesizedParams.role   ||
+        currentSpeed     !== lastSynthesizedParams.speed  ||
+        currentPitchShift !== lastSynthesizedParams.pitchShift ||
+        currentVolume    !== lastSynthesizedParams.volume ||
+        currentFormat    !== lastSynthesizedParams.format ||
+        currentNormType  !== lastSynthesizedParams.normType ||
+        currentTtsLang   !== lastSynthesizedParams.lang
+    );
+    var isDirty = textDirty || paramsDirty;
+
+    var muteBtn      = document.getElementById('ttsMuteBtn');
+    var playPauseBtn = document.getElementById('ttsPlayPauseBtn');
+    var downloadBtn  = document.getElementById('ttsDownloadBtn');
+    var sendBtn      = document.getElementById('sendButton');
+    if (!muteBtn || !sendBtn) return;
+
+    muteBtn.classList.toggle('hidden', !hasAudio);
+    playPauseBtn.classList.toggle('hidden', !hasAudio);
+    downloadBtn.classList.toggle('hidden', !hasAudio);
+    sendBtn.classList.toggle('hidden', hasAudio && !isDirty);
+
+    if (hasAudio) {
+        var isPlaying = currentAudio && !currentAudio.paused && !currentAudio.ended;
+        var isMuted   = currentAudio && currentAudio.muted;
+        playPauseBtn.innerHTML = isPlaying ? ICON_PAUSE : ICON_PLAY;
+        playPauseBtn.title     = isPlaying ? 'Пауза' : 'Воспроизвести';
+        muteBtn.innerHTML = isMuted ? ICON_MUTE : ICON_VOL;
+        muteBtn.title     = isMuted ? 'Включить звук' : 'Выключить звук';
+    }
+}
+
+function attachAudioListeners(audio) {
+    audio.addEventListener('play',  updateTtsUI);
+    audio.addEventListener('pause', updateTtsUI);
+    audio.addEventListener('ended', updateTtsUI);
+}
+
+// Default demo texts per TTS language
+var ttsDefaultTexts = {
+    'ru-RU': 'Привет!\nЯ Яндекс Спичк+ит.\nЯ могу превратить любой текст в речь.\nТеперь и вы - можете!',
+    'kk-KZ': 'Сәлем!\nМен Яндекс Спичкитпін.\nМен кез келген мәтінді сөзге айналдыра аламын.\nЕнді сіз де жасай аласыз!',
+    'uz-UZ': 'Assalomu alaykum!\nMen [[j a n d e k s]] SpeechKit\'man.\nMen istalgan matnni nutqqa o\'gira olaman.\nVa endi siz ham buni bajara olasiz!',
+    'en-US': 'Hi there!\nI\'m Yandex SpeechKit.\nI can turn any text into speech.\nAnd now, so can you!',
+    'de-DE': 'Hallo!\nIch bin Yandex SpeechKit.\nIch kann jeden Text in Sprache umwandeln.\nSie können das jetzt auch!',
+    'he-IL': 'שלום לך!\nאני יאנדקס דיבורזה.\nאני יכול להפוך כל טקסט לדיבור.\nועכשיו, גם אתה יכול!'
+};
+
 // Add CSS for dropdowns
 document.addEventListener('DOMContentLoaded', function() {
     // Enable STREAM tab if feature is enabled
@@ -86,10 +152,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var ttsLangOptions = [
         { label: 'Русский', value: 'ru-RU' },
         { label: 'Английский', value: 'en-US' },
-        { label: 'Казахский', value: 'kz-KZ' },
+        { label: 'Казахский', value: 'kk-KZ' },
         { label: 'Узбекский', value: 'uz-UZ' },
-        { label: 'Турецкий', value: 'tr-TR' },
         { label: 'Немецкий', value: 'de-DE' },
+        { label: 'Иврит', value: 'he-IL' },
     ];
     var ttsLangDropdownContent = document.getElementById('ttsLangDropdownContent');
     ttsLangOptions.forEach(function(opt) {
@@ -101,6 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('ttsLangDropdown').textContent = opt.label;
             ttsLangDropdownContent.classList.remove('show');
             switchTtsLanguage(opt.value);
+            setTtsDefaultText(opt.value);
         };
         ttsLangDropdownContent.appendChild(item);
     });
@@ -132,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
             currentFormat = fmt;
             document.getElementById('formatDropdown').textContent = fmt;
             formatDropdownContent.classList.remove('show');
+            updateTtsUI();
         };
         formatDropdownContent.appendChild(item);
     });
@@ -150,6 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('normDropdown').textContent = opt.label;
             normDropdownContent.classList.remove('show');
             updateVolumeSliderRange();
+            updateTtsUI();
         };
         normDropdownContent.appendChild(item);
     });
@@ -158,16 +227,19 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('speedSlider').addEventListener('input', function() {
         currentSpeed = parseFloat(this.value);
         document.getElementById('speedValue').textContent = currentSpeed.toFixed(1);
+        updateTtsUI();
     });
-    
+
     document.getElementById('pitchSlider').addEventListener('input', function() {
         currentPitchShift = parseInt(this.value);
         document.getElementById('pitchValue').textContent = currentPitchShift;
+        updateTtsUI();
     });
-    
+
     document.getElementById('volumeSlider').addEventListener('input', function() {
         currentVolume = parseFloat(this.value);
         document.getElementById('volumeValue').textContent = currentVolume;
+        updateTtsUI();
     });
     
     function updateVolumeSliderRange() {
@@ -214,6 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
         slider.value = '-19';
         currentVolume = -19;
         document.getElementById('volumeValue').textContent = '-19';
+        updateTtsUI();
     });
     
     // Close dropdowns when clicking outside
@@ -252,6 +325,23 @@ document.addEventListener('DOMContentLoaded', function() {
     
 });
 
+// Set textarea to the default demo text for the given language
+function setTtsDefaultText(lang) {
+    var textArea = document.getElementById('textInput');
+    var defaultText = ttsDefaultTexts[lang] || ttsDefaultTexts['ru-RU'] || '';
+    textArea.value = defaultText;
+    textArea.dir = (lang === 'he-IL') ? 'rtl' : 'ltr';
+    var maxLength = textArea.getAttribute('maxlength');
+    document.getElementById('charCount').textContent = defaultText.length + '/' + maxLength;
+    var clearBtn = document.getElementById('clearTextBtn');
+    if (defaultText.length > 0) {
+        clearBtn.classList.add('visible');
+    } else {
+        clearBtn.classList.remove('visible');
+    }
+    updateTtsUI();
+}
+
 // Switch TTS language: update voices dict and repopulate dropdowns
 function switchTtsLanguage(lang) {
     voices = voicesData[lang] || {};
@@ -281,6 +371,7 @@ function populateVoicesDropdown() {
             populateRolesDropdown(voice);
             document.getElementById('voicesDropdown').textContent = voice;
             voicesDropdownContent.classList.remove('show');
+            updateTtsUI();
         };
         voicesDropdownContent.appendChild(item);
     }
@@ -308,6 +399,7 @@ function populateRolesDropdown(name) {
             currentRole = role;
             document.getElementById('rolesDropdown').textContent = role;
             rolesDropdownContent.classList.remove('show');
+            updateTtsUI();
         };
         rolesDropdownContent.appendChild(item);
         
@@ -348,6 +440,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var maxLength = textArea.getAttribute('maxlength');
         charCount.textContent = currentLength + '/' + maxLength;
         updateClearBtn();
+        updateTtsUI();
     });
 
     // Initialize character count
@@ -425,19 +518,70 @@ document.addEventListener('DOMContentLoaded', function() {
         updateClearBtn();
     });
     
+    // Icon button handlers
+    document.getElementById('ttsMuteBtn').addEventListener('click', function() {
+        if (currentAudio) {
+            currentAudio.muted = !currentAudio.muted;
+            updateTtsUI();
+        }
+    });
+
+    document.getElementById('ttsPlayPauseBtn').addEventListener('click', function() {
+        if (!currentAudioUrl) return;
+        if (!currentAudio || currentAudio.ended) {
+            if (currentAudio) currentAudio.pause();
+            currentAudio = new Audio(currentAudioUrl);
+            attachAudioListeners(currentAudio);
+            currentAudio.play();
+        } else if (currentAudio.paused) {
+            currentAudio.play();
+        } else {
+            currentAudio.pause();
+        }
+    });
+
+    document.getElementById('ttsDownloadBtn').addEventListener('click', function() {
+        if (currentAudioUrl) {
+            var link = document.createElement('a');
+            link.href = currentAudioUrl;
+            var ext = currentFormat === 'OGG_OPUS' ? 'ogg' : currentFormat.toLowerCase();
+            link.download = 'audio.' + ext;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    });
+
     // Send TTS request
     document.getElementById('sendButton').addEventListener('click', function() {
         var text = textArea.value;
-        
-        document.getElementById('processing').style.display = 'inline-block';
-        document.getElementById('sendButton').style.display = 'none';
-        document.getElementById('playbackButtonContainer').innerHTML = '';
-        
+        var sendBtn = document.getElementById('sendButton');
+
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+
+        sendBtn.classList.add('loading');
+        sendBtn.disabled = true;
+        document.getElementById('ttsMuteBtn').classList.add('hidden');
+        document.getElementById('ttsPlayPauseBtn').classList.add('hidden');
+        document.getElementById('ttsDownloadBtn').classList.add('hidden');
+
+        var snapParams = {
+            voice: currentVoice, role: currentRole, speed: currentSpeed,
+            pitchShift: currentPitchShift, volume: currentVolume,
+            format: currentFormat, normType: currentNormType, lang: currentTtsLang
+        };
+
+        function exitLoading() {
+            sendBtn.classList.remove('loading');
+            sendBtn.disabled = false;
+        }
+
         fetch('${api_gw}/tts', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: text,
                 voice: currentVoice,
@@ -450,45 +594,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }),
         })
         .then(response => {
-            document.getElementById('processing').style.display = 'none';
-            document.getElementById('sendButton').style.display = 'inline-block';
-
             if (response.ok) {
-                response.blob().then(blob => {
-                    var audioUrl = URL.createObjectURL(blob);
-
-                    // Playback button
-                    var playbackButton = document.createElement('button');
-                    playbackButton.textContent = 'Прослушать';
-                    playbackButton.onclick = function() {
-                        var audio = new Audio(audioUrl);
-                        audio.play();
-                    };
-                    document.getElementById('playbackButtonContainer').appendChild(playbackButton);
-
-                    // Download button
-                    var downloadButton = document.createElement('button');
-                    downloadButton.textContent = 'Скачать';
-                    downloadButton.style.marginLeft = '5px';
-                    downloadButton.onclick = function() {
-                        var link = document.createElement('a');
-                        link.href = audioUrl;
-                        var ext = currentFormat === 'OGG_OPUS' ? 'ogg' : currentFormat.toLowerCase();
-                        link.download = 'audio.' + ext;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    };
-                    document.getElementById('playbackButtonContainer').appendChild(downloadButton);
+                response.blob().then(function(blob) {
+                    exitLoading();
+                    currentAudioUrl = URL.createObjectURL(blob);
+                    lastSynthesizedText = text;
+                    lastSynthesizedParams = snapParams;
+                    currentAudio = new Audio(currentAudioUrl);
+                    attachAudioListeners(currentAudio);
+                    currentAudio.play();
+                    updateTtsUI();
                 });
             } else {
                 console.error('HTTP Error:', response.statusText);
+                exitLoading();
+                updateTtsUI();
             }
         })
-        .catch((error) => {
+        .catch(function(error) {
             console.error('Error:', error);
-            document.getElementById('processing').style.display = 'none';
-            document.getElementById('sendButton').style.display = 'inline-block';
+            exitLoading();
+            updateTtsUI();
         });
     });
     

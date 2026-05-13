@@ -19,12 +19,14 @@
     </header>
 
     <div class="container">
-        
+
         <!-- Tabs -->
-        <button class="tab active" data-tab="textToSpeech">Синтез речи</button>
-        <button class="tab" data-tab="speechToText">Распознавание речи</button>
-        <button class="tab stream-only" data-tab="streamRecognition">Потоковое распознавание</button>
-        
+        <div class="tabs-row">
+            <button class="tab active" data-tab="textToSpeech">Синтез речи</button>
+            <button class="tab" data-tab="speechToText">Распознавание речи</button>
+            <button class="tab stream-only" data-tab="streamRecognition">Потоковое распознавание</button>
+        </div>
+
         <!-- Tab content -->
         <div class="tab-content active" id="textToSpeech">
             <div class="tab-description">
@@ -139,13 +141,22 @@
                 </div>
             </div>
             
-            <div style="margin-top: 15px;" id="ttsButtonRow">
-                <button id="sendButton">Отправить</button>
-                <button id="processing" disabled>
-                    <span class="spinner"></span>
-                    <span>Обработка запроса...</span>
-                </button>
-                <span id="playbackButtonContainer"></span>
+            <div style="margin-top: 16px;" id="ttsButtonRow">
+                <div class="tts-control-row">
+                    <button id="ttsMuteBtn" class="tts-icon-btn hidden" title="Выключить звук">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    </button>
+                    <button id="ttsPlayPauseBtn" class="tts-icon-btn hidden" title="Воспроизвести">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </button>
+                    <button id="ttsDownloadBtn" class="tts-icon-btn hidden" title="Скачать">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <button id="sendButton" class="tts-wide-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        Синтезировать и воспроизвести
+                    </button>
+                </div>
             </div>
         </div>
         

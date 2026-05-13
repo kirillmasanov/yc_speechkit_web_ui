@@ -67,7 +67,7 @@ def synthesize(text_value, voice_value, role_value, speed_value, pitch_shift_val
         tts_pb2.Hints(volume=volume_value),
         tts_pb2.Hints(pitch_shift=pitch_shift_value),
     ]
-    if role_value != "none":
+    if role_value and role_value not in ("none", "—"):
         hints.append(tts_pb2.Hints(role=role_value))
 
     request = tts_pb2.UtteranceSynthesisRequest(
