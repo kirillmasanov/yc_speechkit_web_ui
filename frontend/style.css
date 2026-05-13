@@ -388,7 +388,7 @@ pre {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.hidden { display: none; }
+.hidden { display: none !important; }
 .text-monospace { font-family: "SF Mono", Monaco, Consolas, monospace; }
 .text-break { word-break: break-word; }
 
@@ -806,6 +806,79 @@ pre {
 .stream-badge.badge-green { background: #F0FDF4; color: #16A34A; }
 .stream-badge.badge-blue  { background: var(--accent-light); color: var(--accent); }
 .stream-badge.badge-grey  { background: var(--surface-3); color: var(--text-secondary); }
+
+/* ── TTS Seekbar ───────────────────────────────────────── */
+.tts-seekbar {
+  position: relative;
+  margin-bottom: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.tts-seekbar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tts-seekbar-inner {
+  flex: 1;
+  height: 3px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+  transition: height 0.15s;
+}
+
+.tts-seekbar-duration {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  pointer-events: none;
+  min-width: 28px;
+  text-align: right;
+}
+
+.tts-seekbar:hover .tts-seekbar-inner { height: 5px; }
+
+.tts-seekbar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  width: 0%;
+  pointer-events: none;
+}
+
+.tts-seekbar-tooltip {
+  position: absolute;
+  bottom: calc(100% - 6px);
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+}
+
+.tts-seekbar-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+}
+
+.tts-seekbar:hover .tts-seekbar-tooltip { display: block; }
 
 /* ── TTS control row ───────────────────────────────────── */
 .tts-control-row {

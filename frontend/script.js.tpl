@@ -56,6 +56,8 @@ function updateTtsUI() {
     var sendBtn      = document.getElementById('sendButton');
     if (!muteBtn || !sendBtn) return;
 
+    var seekbar = document.getElementById('ttsSeekbar');
+    if (seekbar) seekbar.classList.toggle('hidden', !hasAudio);
     muteBtn.classList.toggle('hidden', !hasAudio);
     playPauseBtn.classList.toggle('hidden', !hasAudio);
     downloadBtn.classList.toggle('hidden', !hasAudio);
@@ -72,9 +74,32 @@ function updateTtsUI() {
 }
 
 function attachAudioListeners(audio) {
-    audio.addEventListener('play',  updateTtsUI);
-    audio.addEventListener('pause', updateTtsUI);
-    audio.addEventListener('ended', updateTtsUI);
+    audio.addEventListener('play',           updateTtsUI);
+    audio.addEventListener('pause',          updateTtsUI);
+    audio.addEventListener('ended',          updateTtsUI);
+    audio.addEventListener('timeupdate',     updateSeekbar);
+    audio.addEventListener('seeked',         updateSeekbar);
+    audio.addEventListener('loadedmetadata', updateSeekbarDuration);
+    audio.addEventListener('durationchange', updateSeekbarDuration);
+}
+
+function updateSeekbar() {
+    if (!currentAudio || !currentAudio.duration || isNaN(currentAudio.duration)) return;
+    var pct = (currentAudio.currentTime / currentAudio.duration) * 100;
+    var fill = document.getElementById('ttsSeekbarFill');
+    if (fill) fill.style.width = pct + '%';
+}
+
+function updateSeekbarDuration() {
+    if (!currentAudio || !currentAudio.duration || isNaN(currentAudio.duration)) return;
+    var el = document.getElementById('ttsSeekbarDuration');
+    if (el) el.textContent = formatAudioTime(currentAudio.duration);
+}
+
+function formatAudioTime(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
 }
 
 // Default demo texts per TTS language
@@ -540,6 +565,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Seekbar: tooltip position + click-to-seek
+    (function() {
+        var seekbar  = document.getElementById('ttsSeekbar');
+        var fill     = document.getElementById('ttsSeekbarFill');
+        var tooltip  = document.getElementById('ttsSeekbarTooltip');
+
+        function posFromEvent(e) {
+            var inner = seekbar.querySelector('.tts-seekbar-inner');
+            var rect  = inner.getBoundingClientRect();
+            return Math.max(0, Math.min(e.clientX - rect.left, rect.width)) / rect.width;
+        }
+
+        seekbar.addEventListener('mousemove', function(e) {
+            var pct = posFromEvent(e);
+            if (currentAudio && currentAudio.duration) {
+                tooltip.textContent = formatAudioTime(pct * currentAudio.duration);
+            }
+            tooltip.style.left = (e.clientX - seekbar.getBoundingClientRect().left) + 'px';
+        });
+
+        var seeking = false;
+        function applySeek(e) {
+            var pct = posFromEvent(e);
+            if (currentAudio && currentAudio.duration) {
+                currentAudio.currentTime = pct * currentAudio.duration;
+                fill.style.width = (pct * 100) + '%';
+            }
+        }
+        seekbar.addEventListener('mousedown', function(e) { seeking = true; applySeek(e); });
+        document.addEventListener('mousemove', function(e) { if (seeking) applySeek(e); });
+        document.addEventListener('mouseup',   function()  { seeking = false; });
+    })();
+
     document.getElementById('ttsDownloadBtn').addEventListener('click', function() {
         if (currentAudioUrl) {
             var link = document.createElement('a');
@@ -564,6 +622,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         sendBtn.classList.add('loading');
         sendBtn.disabled = true;
+        document.getElementById('ttsSeekbar').classList.add('hidden');
         document.getElementById('ttsMuteBtn').classList.add('hidden');
         document.getElementById('ttsPlayPauseBtn').classList.add('hidden');
         document.getElementById('ttsDownloadBtn').classList.add('hidden');
