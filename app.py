@@ -1,20 +1,9 @@
 import os
-from pathlib import Path
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
 load_dotenv()
-
-# Generate script.js from template for local development (Docker does this at build time)
-_tpl = Path("frontend/script.js.tpl")
-_js = Path("frontend/script.js")
-if _tpl.exists() and not _js.exists():
-    _js.write_text(
-        _tpl.read_text()
-        .replace("${api_gw}", "")
-        .replace("${stream_enabled}", "true")
-    )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 

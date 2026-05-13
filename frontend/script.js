@@ -1,5 +1,5 @@
 // Check if STREAM feature is enabled (only in local deployment)
-const STREAM_ENABLED = ${stream_enabled};
+const STREAM_ENABLED = true;
 
 // Voices and roles dictionary (loaded from voices.json)
 let voicesData = {};
@@ -638,7 +638,7 @@ document.addEventListener('DOMContentLoaded', function() {
             sendBtn.disabled = false;
         }
 
-        fetch('${api_gw}/tts', {
+        fetch('/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -819,7 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fd.append('rate', rate);
             fd.append('summaryInstruction', document.getElementById('summaryInstructionInput').value);
             fd.append('speakerLabeling', document.getElementById('speakerLabelingToggle').checked ? 'true' : 'false');
-            return fetch('${api_gw}/stt', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+            return fetch('/stt', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
         }
 
         if (hasExample) {
@@ -857,7 +857,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Check STT operation status
 function checkOperationStatus(operationId) {
     function checkStatus() {
-        fetch(`${api_gw}/operation?operationId=` + operationId)
+        fetch(`/operation?operationId=` + operationId)
             .then(response => response.json())
             .then(response => {
                 if (response.done === "true") {
