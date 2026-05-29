@@ -36,6 +36,20 @@ var sttLastParams = null;
 var currentLlmModel = '';
 var currentStreamLlmModel = '';
 
+// STT classifiers
+var STT_CLASSIFIERS = [
+    { id: 'formal_greeting',   label: 'Формальное приветствие',   tooltip: 'Определяет наличие в речи формальных приветствий, например «Добрый день», «Здравствуйте».' },
+    { id: 'informal_greeting', label: 'Неформальное приветствие', tooltip: 'Определяет наличие в речи неформальных приветствий, например «Привет», «Хай».' },
+    { id: 'formal_farewell',   label: 'Формальное прощание',      tooltip: 'Определяет наличие в речи формальных прощаний, например «До свидания», «Всего доброго».' },
+    { id: 'informal_farewell', label: 'Неформальное прощание',    tooltip: 'Определяет наличие в речи неформальных прощаний, например «Пока», «Чао».' },
+    { id: 'insult',            label: 'Оскорбления',              tooltip: 'Определяет наличие в речи оскорблений и грубых высказываний.' },
+    { id: 'profanity',         label: 'Мат',                      tooltip: 'Определяет наличие в речи нецензурной лексики.' },
+    { id: 'gender',            label: 'Пол',                      tooltip: 'Определяет пол говорящего.' },
+    { id: 'negative',          label: 'Негатив',                  tooltip: 'Определяет негативную окраску речи.' },
+    { id: 'answerphone',       label: 'Ответ робота',             tooltip: 'Определяет, что ответ дан голосовым ботом или автоответчиком.' },
+];
+var selectedClassifiers = new Set(['formal_greeting','informal_greeting','formal_farewell','informal_farewell','insult','profanity','gender','negative','answerphone']);
+
 // Currently playing TTS audio (stopped before each new request/playback)
 let currentAudio = null;
 
@@ -389,6 +403,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const dropdown = document.getElementById('streamLlmModelDropdownContent');
             if (dropdown && dropdown.classList.contains('show')) {
                 dropdown.classList.remove('show');
+            }
+        }
+        var msDropdown = document.getElementById('classifierMultiselectDropdown');
+        if (msDropdown && msDropdown.style.display !== 'none') {
+            var msBtn = document.getElementById('classifierMultiselectBtn');
+            if (!msBtn.contains(event.target) && !msDropdown.contains(event.target)) {
+                msDropdown.style.display = 'none';
             }
         }
     });
@@ -879,7 +900,9 @@ document.addEventListener('DOMContentLoaded', function() {
             fd.append('lang', lang);
             fd.append('rate', rate);
             fd.append('speakerLabeling', document.getElementById('speakerLabelingToggle').checked ? 'true' : 'false');
-            fd.append('classifiers', document.getElementById('sttClassifiersToggle').checked ? 'all' : '');
+            var classifiersOn = document.getElementById('classifiersToggleTrack').classList.contains('active');
+            fd.append('classifiers', classifiersOn && selectedClassifiers.size > 0
+                ? Array.from(selectedClassifiers).join(',') : '');
             if (document.getElementById('llmToggleTrack').classList.contains('active')) {
                 fd.append('summaryInstruction', document.getElementById('summaryInstructionInput').value);
                 fd.append('llmModel', currentLlmModel);
@@ -1752,7 +1775,8 @@ function getSttCurrentParams() {
         literaryText:       document.getElementById('literaryTextToggle').checked,
         speakerLabeling:    document.getElementById('speakerLabelingToggle').checked,
         speakerGrouping:    document.getElementById('speakerGroupingToggle').checked,
-        classifiers:        document.getElementById('sttClassifiersToggle').checked,
+        classifiers:        document.getElementById('classifiersToggleTrack').classList.contains('active')
+                                ? Array.from(selectedClassifiers).sort().join(',') : '',
         llmEnabled:         llmOn,
         llmModel:           llmOn ? currentLlmModel : '',
         summaryInstruction: llmOn ? (document.getElementById('summaryInstructionInput').value || '').trim() : '',
@@ -1833,7 +1857,7 @@ document.addEventListener('DOMContentLoaded', function() {
             sttCheckDirty();
             // Disable normalization for auto-detect (normalization not supported with auto)
             var normToggle = document.getElementById('normalizationToggle');
-            var classifiersToggle = document.getElementById('sttClassifiersToggle');
+            var classifiersTrack = document.getElementById('classifiersToggleTrack');
             if (opt.value === 'auto') {
                 normToggle.checked = false;
                 normToggle.disabled = true;
@@ -1841,21 +1865,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('profanityFilterToggle').checked = false;
                 document.getElementById('literaryTextToggle').disabled = true;
                 document.getElementById('literaryTextToggle').checked = false;
-                classifiersToggle.disabled = true;
-                classifiersToggle.checked = false;
+                classifiersTrack.classList.add('disabled');
+                if (classifiersTrack.classList.contains('active')) {
+                    classifiersTrack.classList.remove('active');
+                    document.getElementById('classifiersOptions').style.display = 'none';
+                }
             } else if (opt.value !== 'ru-RU') {
                 normToggle.disabled = false;
                 var normEnabled = normToggle.checked;
                 document.getElementById('profanityFilterToggle').disabled = !normEnabled;
                 document.getElementById('literaryTextToggle').disabled = !normEnabled;
-                classifiersToggle.disabled = true;
-                classifiersToggle.checked = false;
+                classifiersTrack.classList.add('disabled');
+                if (classifiersTrack.classList.contains('active')) {
+                    classifiersTrack.classList.remove('active');
+                    document.getElementById('classifiersOptions').style.display = 'none';
+                }
             } else {
                 normToggle.disabled = false;
                 var normEnabled = normToggle.checked;
                 document.getElementById('profanityFilterToggle').disabled = !normEnabled;
                 document.getElementById('literaryTextToggle').disabled = !normEnabled;
-                classifiersToggle.disabled = false;
+                classifiersTrack.classList.remove('disabled');
             }
         };
         sttLangContent.appendChild(item);
@@ -1887,7 +1917,63 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('speakerGroupingToggle').addEventListener('change', sttCheckDirty);
-    document.getElementById('sttClassifiersToggle').addEventListener('change', sttCheckDirty);
+
+    // Classifier toggle
+    document.getElementById('classifiersToggleTrack').addEventListener('click', function() {
+        if (this.classList.contains('disabled')) return;
+        var active = this.classList.toggle('active');
+        document.getElementById('classifiersOptions').style.display = active ? '' : 'none';
+        if (!active) {
+            document.getElementById('classifierMultiselectDropdown').style.display = 'none';
+        }
+        sttCheckDirty();
+    });
+
+    // Build classifier multiselect items
+    (function() {
+        var dropdown = document.getElementById('classifierMultiselectDropdown');
+        STT_CLASSIFIERS.forEach(function(clf) {
+            var item = document.createElement('div');
+            item.className = 'classifier-multiselect-item selected';
+            item.dataset.id = clf.id;
+
+            var check = document.createElement('span');
+            check.className = 'classifier-multiselect-check';
+            check.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            item.appendChild(check);
+
+            var label = document.createElement('span');
+            label.className = 'classifier-multiselect-label';
+            label.textContent = clf.label;
+            item.appendChild(label);
+
+            var help = document.createElement('a');
+            help.className = 'help-link classifier-item-help';
+            help.innerHTML = '?<span class="help-tooltip">' + clf.tooltip + '</span>';
+            item.appendChild(help);
+
+            item.addEventListener('click', function(e) {
+                if (e.target.closest('.help-link')) return;
+                if (selectedClassifiers.has(clf.id)) {
+                    selectedClassifiers.delete(clf.id);
+                    item.classList.remove('selected');
+                } else {
+                    selectedClassifiers.add(clf.id);
+                    item.classList.add('selected');
+                }
+                updateClassifierBtnText();
+                sttCheckDirty();
+            });
+
+            dropdown.appendChild(item);
+        });
+    })();
+
+    // Classifier multiselect button
+    document.getElementById('classifierMultiselectBtn').addEventListener('click', function() {
+        var dd = document.getElementById('classifierMultiselectDropdown');
+        dd.style.display = dd.style.display === 'none' ? '' : 'none';
+    });
 
     // LLM model dropdown toggle (STT)
     document.getElementById('llmModelDropdown').addEventListener('click', function() {
@@ -1950,8 +2036,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('speakerGroupingToggle').checked = false;
         document.getElementById('speakerGroupingToggle').disabled = true;
 
-        document.getElementById('sttClassifiersToggle').checked = false;
-        document.getElementById('sttClassifiersToggle').disabled = false;
+        var cTrack = document.getElementById('classifiersToggleTrack');
+        cTrack.classList.remove('active', 'disabled');
+        document.getElementById('classifiersOptions').style.display = 'none';
+        document.getElementById('classifierMultiselectDropdown').style.display = 'none';
+        selectedClassifiers = new Set(STT_CLASSIFIERS.map(function(c) { return c.id; }));
+        updateClassifierBtnText();
+        // Update checkmarks in dropdown
+        document.querySelectorAll('.classifier-multiselect-item').forEach(function(item) {
+            item.classList.add('selected');
+        });
 
         sttCheckDirty();
     });
@@ -2027,6 +2121,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+function updateClassifierBtnText() {
+    var label = document.getElementById('classifierMultiselectLabel');
+    if (!label) return;
+    var n = selectedClassifiers.size;
+    var total = STT_CLASSIFIERS.length;
+    if (n === 0) label.textContent = 'Выберите классификаторы';
+    else if (n === total) label.textContent = 'Все классификаторы';
+    else label.textContent = n + ' из ' + total + ' выбрано';
+}
 
 function renderSttClassifiers(classifierData) {
     var section = document.getElementById('classifierResultSection');
