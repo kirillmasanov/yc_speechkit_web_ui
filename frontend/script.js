@@ -48,7 +48,7 @@ var STT_CLASSIFIERS = [
     { id: 'negative',          label: 'Негатив',                  tooltip: 'Определяет негативную окраску речи.' },
     { id: 'answerphone',       label: 'Ответ робота',             tooltip: 'Определяет, что ответ дан голосовым ботом или автоответчиком.' },
 ];
-var selectedClassifiers = new Set(['formal_greeting','informal_greeting','formal_farewell','informal_farewell','insult','profanity','gender','negative','answerphone']);
+var selectedClassifiers = new Set();
 
 // Currently playing TTS audio (stopped before each new request/playback)
 let currentAudio = null;
@@ -1265,7 +1265,9 @@ function checkOperationStatus(operationId) {
                     const summarySection = document.getElementById('summarySection');
                     summarySection.innerHTML = '';
                     
-                    renderSttClassifiers(response.result.classifierData);
+                    var classifiersOn = document.getElementById('classifiersToggleTrack').classList.contains('active');
+                    var requestedClassifiers = classifiersOn && selectedClassifiers.size > 0 ? Array.from(selectedClassifiers) : [];
+                    renderSttClassifiers(response.result.classifierData, requestedClassifiers);
 
                     if (summaryData && summaryData.results && summaryData.results.length > 0) {
                         document.getElementById('llmResultSection').style.display = '';
@@ -1932,9 +1934,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Build classifier multiselect items
     (function() {
         var dropdown = document.getElementById('classifierMultiselectDropdown');
+
+        // "Select all" button
+        var selectAllBtn = document.createElement('div');
+        selectAllBtn.className = 'classifier-select-all';
+        selectAllBtn.textContent = 'Выбрать все';
+        selectAllBtn.addEventListener('click', function() {
+            STT_CLASSIFIERS.forEach(function(c) { selectedClassifiers.add(c.id); });
+            dropdown.querySelectorAll('.classifier-multiselect-item').forEach(function(el) {
+                el.classList.add('selected');
+            });
+            updateClassifierBtnText();
+            sttCheckDirty();
+        });
+        dropdown.appendChild(selectAllBtn);
+
         STT_CLASSIFIERS.forEach(function(clf) {
             var item = document.createElement('div');
-            item.className = 'classifier-multiselect-item selected';
+            item.className = 'classifier-multiselect-item'; // not selected by default
             item.dataset.id = clf.id;
 
             var check = document.createElement('span');
@@ -2040,11 +2057,10 @@ document.addEventListener('DOMContentLoaded', function() {
         cTrack.classList.remove('active', 'disabled');
         document.getElementById('classifiersOptions').style.display = 'none';
         document.getElementById('classifierMultiselectDropdown').style.display = 'none';
-        selectedClassifiers = new Set(STT_CLASSIFIERS.map(function(c) { return c.id; }));
+        selectedClassifiers = new Set();
         updateClassifierBtnText();
-        // Update checkmarks in dropdown
         document.querySelectorAll('.classifier-multiselect-item').forEach(function(item) {
-            item.classList.add('selected');
+            item.classList.remove('selected');
         });
 
         sttCheckDirty();
@@ -2132,70 +2148,75 @@ function updateClassifierBtnText() {
     else label.textContent = n + ' из ' + total + ' выбрано';
 }
 
-function renderSttClassifiers(classifierData) {
+function renderSttClassifiers(classifierData, requestedList) {
     var section = document.getElementById('classifierResultSection');
     var content = document.getElementById('classifierResultContent');
     content.innerHTML = '';
 
-    if (!classifierData || !classifierData.length) {
+    if (!requestedList || !requestedList.length) {
         section.style.display = 'none';
         return;
     }
 
-    // Group by classifier name, keep max confidence per label
-    var byClassifier = {};
-    classifierData.forEach(function(cu) {
+    // Compute average confidence per classifier per label across all utterances
+    var sums = {}, counts = {};
+    (classifierData || []).forEach(function(cu) {
         var name = cu.classifier;
         if (!name) return;
-        if (!byClassifier[name]) byClassifier[name] = {};
+        if (!sums[name]) { sums[name] = {}; counts[name] = 0; }
+        counts[name]++;
         (cu.labels || []).forEach(function(lbl) {
-            var cur = byClassifier[name][lbl.label] || 0;
-            if ((lbl.confidence || 0) > cur) byClassifier[name][lbl.label] = lbl.confidence;
+            if (!sums[name][lbl.label]) sums[name][lbl.label] = 0;
+            sums[name][lbl.label] += (lbl.confidence || 0);
+        });
+    });
+    var byClassifier = {};
+    Object.keys(sums).forEach(function(name) {
+        byClassifier[name] = {};
+        var n = counts[name] || 1;
+        Object.keys(sums[name]).forEach(function(lbl) {
+            byClassifier[name][lbl] = sums[name][lbl] / n;
         });
     });
 
-    var badgeColors = {
-        'insult': 'badge-red', 'profanity': 'badge-red', 'negative': 'badge-red',
-        'formal_greeting': 'badge-green', 'informal_greeting': 'badge-green',
-        'formal_farewell': 'badge-blue', 'informal_farewell': 'badge-blue',
-        'gender': 'badge-grey', 'answerphone': 'badge-grey',
-    };
-    var labelsRu = {
-        'formal_greeting': 'Формальное приветствие',
+    var namesRu = {
+        'formal_greeting':   'Формальное приветствие',
         'informal_greeting': 'Неформальное приветствие',
-        'formal_farewell': 'Формальное прощание',
+        'formal_farewell':   'Формальное прощание',
         'informal_farewell': 'Неформальное прощание',
-        'insult': 'Оскорбления',
-        'profanity': 'Мат',
-        'gender': 'Пол',
-        'negative': 'Негатив',
-        'answerphone': 'Ответ робота',
-        'GENDER_MALE': 'Мужской',
-        'GENDER_FEMALE': 'Женский',
+        'insult':            'Оскорбления',
+        'profanity':         'Мат',
+        'gender':            'Пол',
+        'negative':          'Негатив',
+        'answerphone':       'Ответ робота',
     };
+    var genderLabels = { 'GENDER_MALE': 'мужской', 'male': 'мужской', 'GENDER_FEMALE': 'женский', 'female': 'женский' };
 
-    var badgesDiv = document.createElement('div');
-    badgesDiv.className = 'stream-badges';
-    var hasAny = false;
+    var chipsDiv = document.createElement('div');
+    chipsDiv.className = 'classifier-chips';
 
-    Object.keys(byClassifier).forEach(function(name) {
-        var colorClass = badgeColors[name] || 'badge-grey';
-        Object.keys(byClassifier[name]).forEach(function(lbl) {
-            var conf = byClassifier[name][lbl];
-            if (conf < 0.3) return;
-            var badge = document.createElement('span');
-            badge.className = 'stream-badge ' + colorClass;
-            var displayName = name === 'gender' ? (labelsRu[lbl] || lbl) : (labelsRu[name] || name);
-            badge.textContent = displayName + ' ' + Math.round(conf * 100) + '%';
-            badgesDiv.appendChild(badge);
-            hasAny = true;
-        });
+    requestedList.forEach(function(name) {
+        var chip = document.createElement('span');
+        chip.className = 'classifier-chip';
+
+        var label = namesRu[name] || name;
+        var valueStr;
+
+        if (name === 'gender') {
+            var gd = byClassifier['gender'] || {};
+            var male   = Math.round((gd['male']   || 0) * 100);
+            var female = Math.round((gd['female'] || 0) * 100);
+            label = 'Пол (мужской/женский)';
+            valueStr = (male || female) ? male + '% / ' + female + '%' : '–';
+        } else {
+            var avg = (byClassifier[name] || {})['confidence'] || 0;
+            valueStr = avg >= 0.005 ? Math.round(avg * 100) + '%' : '–';
+        }
+
+        chip.innerHTML = label + ' <span class="classifier-chip-value">: ' + valueStr + '</span>';
+        chipsDiv.appendChild(chip);
     });
 
-    if (hasAny) {
-        content.appendChild(badgesDiv);
-    } else {
-        content.innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Классификаторы не обнаружили характерных паттернов в аудио.</span>';
-    }
+    content.appendChild(chipsDiv);
     section.style.display = '';
 }
