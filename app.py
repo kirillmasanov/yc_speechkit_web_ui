@@ -25,6 +25,10 @@ app.include_router(tts_router)
 app.include_router(stt_router)
 app.include_router(stream_router)
 
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
 
 if __name__ == "__main__":

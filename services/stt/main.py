@@ -27,6 +27,27 @@ request_header = {'Authorization': 'Api-Key {}'.format(config['api_key_secret'])
 router = APIRouter()
 
 
+@router.get("/models")
+async def list_models():
+    if not _folder_id:
+        return JSONResponse({"error": "YANDEX_FOLDER_ID not configured"}, status_code=500)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                'https://ai.api.cloud.yandex.net/v1/models',
+                headers={
+                    'Authorization': f'Api-Key {config["api_key_secret"]}',
+                    'x-project': _folder_id,
+                },
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+            return JSONResponse(resp.json())
+    except Exception as e:
+        logging.error(f"Failed to fetch models: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @router.post("/stt")
 async def upload_file(
     file: UploadFile = File(...),
@@ -34,6 +55,7 @@ async def upload_file(
     rate: int = Form(default=48000),
     summaryInstruction: str = Form(default=''),
     speakerLabeling: bool = Form(default=False),
+    llmModel: str = Form(default=''),
 ):
     audio_bytes = await file.read()
     filename = file.filename.lower()
@@ -48,7 +70,7 @@ async def upload_file(
         return JSONResponse({"error": "Unsupported file type"}, status_code=400)
 
     operation_id = create_recognition_task(
-        audio_bytes, container_type, lang, rate, summaryInstruction, speakerLabeling
+        audio_bytes, container_type, lang, rate, summaryInstruction, speakerLabeling, llmModel
     )
 
     if not operation_id:
@@ -104,7 +126,7 @@ def _create_grpc_channel():
     return channel, metadata
 
 
-def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summary_instruction='', speaker_labeling=False):
+def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summary_instruction='', speaker_labeling=False, model_uri_override=''):
     channel, metadata = _create_grpc_channel()
     stub = stt_service_pb2_grpc.AsyncRecognizerStub(channel)
 
@@ -144,9 +166,10 @@ def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summa
             speaker_labeling=stt_pb2.SpeakerLabelingOptions.SPEAKER_LABELING_ENABLED,
         ))
 
-    if config['model_uri'] and summary_instruction:
+    effective_model_uri = model_uri_override or config['model_uri']
+    if effective_model_uri and summary_instruction:
         recognize_request.summarization.CopyFrom(stt_pb2.SummarizationOptions(
-            model_uri=config['model_uri'],
+            model_uri=effective_model_uri,
             properties=[stt_pb2.SummarizationProperty(instruction=summary_instruction)]
         ))
 

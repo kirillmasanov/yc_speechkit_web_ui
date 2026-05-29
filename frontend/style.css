@@ -65,7 +65,7 @@ header {
 }
 
 .logo-text {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -239,6 +239,13 @@ label { display: block; margin-bottom: 6px; }
   color: var(--text);
   border-color: var(--text-muted);
   box-shadow: none;
+}
+
+.field-annotation-lg {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
 }
 
 .field-annotation.collapsible { cursor: pointer; user-select: none; }
@@ -507,29 +514,14 @@ pre {
   box-shadow: 0 2px 6px rgba(0, 95, 249, 0.22);
 }
 
-.bubble-tooltip {
-  display: none;
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  background: #1A1A1A;
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  line-height: 1.45;
-  white-space: nowrap;
-  z-index: 10;
-  margin-bottom: 6px;
-  pointer-events: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+.bubble-time {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-bottom: 3px;
+  line-height: 1.2;
+  font-weight: 400;
 }
 
-.dialogue-bubble.right .bubble-tooltip { left: auto; right: 0; }
-.dialogue-bubble:hover .bubble-tooltip { display: block; }
-
-.tooltip-row { margin-bottom: 2px; }
-.tooltip-label { color: #94A3B8; margin-right: 4px; }
 .dialogue-clearfix { clear: both; }
 
 /* ── Stream-only visibility ────────────────────────────── */
@@ -976,3 +968,286 @@ footer a:hover { color: var(--accent); text-decoration: underline; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── STT params section ────────────────────────────────── */
+.stt-params-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.stt-params-header .field-annotation-lg { margin-bottom: 0; }
+
+.stt-reset-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 400;
+  padding: 4px 6px;
+  margin: 0;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: none;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.stt-reset-btn:hover { color: var(--text); background: var(--surface-3); box-shadow: none; transform: none; }
+
+.stt-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 20px 0;
+  margin-bottom: 20px;
+}
+
+.stt-row {
+  display: flex;
+  align-items: center;
+  padding: 7px 0;
+}
+
+.stt-row-lang {
+  gap: 16px;
+}
+
+.stt-row-label {
+  font-size: 14px;
+  color: var(--text);
+  min-width: 48px;
+}
+
+.stt-row-sub {
+  padding-left: 28px;
+}
+
+.stt-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+}
+
+.stt-checkbox-label input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+  margin: 0;
+  padding: 0;
+}
+
+.stt-checkbox-label input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.45; }
+.stt-checkbox-label input[type="checkbox"]:disabled ~ span { color: var(--text-muted); }
+.stt-checkbox-label input[type="checkbox"]:disabled ~ a { opacity: 0.5; pointer-events: none; }
+.stt-checkbox-label:has(input:disabled) { cursor: default; }
+
+/* ── STT upload zone ───────────────────────────────────── */
+.stt-upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  text-align: center;
+  margin-bottom: 12px;
+  transition: border-color 0.15s, background 0.15s;
+  cursor: default;
+}
+
+.stt-upload-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.stt-upload-icon {
+  color: var(--accent);
+  margin-bottom: 10px;
+  line-height: 1;
+}
+
+.stt-upload-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.stt-upload-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+/* ── LLM section ───────────────────────────────────────── */
+.llm-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.llm-options {
+  margin-top: 2px;
+  padding-left: 46px;
+}
+
+/* ── Dialogue toolbar ──────────────────────────────────── */
+.dialogue-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.raw-text-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.raw-text-toggle-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  min-width: 36px;
+  background: var(--border);
+  border-radius: 999px;
+  display: inline-block;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.raw-text-toggle-track.active { background: var(--accent); }
+
+.raw-text-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  transition: left 0.18s;
+  pointer-events: none;
+}
+
+.raw-text-toggle-track.active .raw-text-toggle-thumb { left: 18px; }
+
+.btn-copy-dialogue {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: var(--radius-xs);
+  margin: 0;
+  box-shadow: none;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.btn-copy-dialogue:hover { color: var(--text); background: var(--surface-3); box-shadow: none; transform: none; }
+.btn-copy-dialogue.copied { color: var(--success); }
+
+/* ── Raw text section ──────────────────────────────────── */
+.raw-text-section {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-top: 0;
+}
+
+.raw-text-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.raw-text-body {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+/* ── STT file chip ─────────────────────────────────────── */
+.stt-file-chip {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.stt-file-chip-check {
+  color: var(--success);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.stt-file-chip-sep {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.stt-file-chip-name {
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.stt-file-chip-size {
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.stt-file-chip-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0 2px;
+  margin: 0;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: none;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.stt-file-chip-remove:hover {
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}

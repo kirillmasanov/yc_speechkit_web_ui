@@ -13,6 +13,9 @@ let voices = {};
 // Current TTS language
 let currentTtsLang = 'ru-RU';
 
+// Current STT language
+let currentSttLang = 'ru-RU';
+
 // Dropdowns and parameters
 let currentVoice = '';
 let currentRole = '';
@@ -25,6 +28,13 @@ let currentNormType = 'LUFS';
 
 // STT example selection
 let sttExampleKey = null;
+
+// Snapshot of last successfully submitted STT params (for dirty-check)
+var sttLastParams = null;
+
+// Currently selected LLM model IDs
+var currentLlmModel = '';
+var currentStreamLlmModel = '';
 
 // Currently playing TTS audio (stopped before each new request/playback)
 let currentAudio = null;
@@ -129,16 +139,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabs = document.querySelectorAll('.tab');
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            // Remove active class from all tabs and contents
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            // Add active class to clicked tab and corresponding content
             tab.classList.add('active');
             const tabId = tab.getAttribute('data-tab');
             document.getElementById(tabId).classList.add('active');
+            localStorage.setItem('speechkit_tab', tabId);
         });
     });
+
+    // Restore last active tab
+    (function() {
+        var saved = localStorage.getItem('speechkit_tab');
+        if (!saved) return;
+        if (saved === 'streamRecognition' && !STREAM_ENABLED) return;
+        var tabBtn = document.querySelector('[data-tab="' + saved + '"]');
+        var tabContent = document.getElementById(saved);
+        if (!tabBtn || !tabContent) return;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tabBtn.classList.add('active');
+        tabContent.classList.add('active');
+    })();
     
     // Load TTS examples
     var ttsExamples = {};
@@ -351,8 +373,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 dropdown.classList.remove('show');
             }
         }
+        if (!event.target.matches('#sttLangDropdown')) {
+            const dropdown = document.getElementById('sttLangDropdownContent');
+            if (dropdown && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        }
+        if (!event.target.matches('#llmModelDropdown')) {
+            const dropdown = document.getElementById('llmModelDropdownContent');
+            if (dropdown && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        }
+        if (!event.target.matches('#streamLlmModelDropdown')) {
+            const dropdown = document.getElementById('streamLlmModelDropdownContent');
+            if (dropdown && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        }
     });
-    
+
 });
 
 // Set textarea to the default demo text for the given language
@@ -748,19 +788,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // STT file input handling
     document.getElementById('fileInput').addEventListener('change', function() {
         var file = this.files[0];
-        if (file && file.type === 'audio/wav') {
-            document.getElementById('rateForm').classList.remove('hidden');
-        } else {
-            document.getElementById('rateForm').classList.add('hidden');
-            document.getElementById('sampleRateInput').value = '48000';
-        }
-        // Clear example selection when user picks their own file
         if (file) {
+            if (file.type === 'audio/wav' || file.name.endsWith('.wav')) {
+                document.getElementById('rateForm').classList.remove('hidden');
+            } else {
+                document.getElementById('rateForm').classList.add('hidden');
+                document.getElementById('sampleRateInput').value = '48000';
+            }
+            showSttFileChip(file.name, file.size);
             sttExampleKey = null;
+            sttCheckDirty();
             document.getElementById('sttExampleMono').classList.remove('btn-success');
             document.getElementById('sttExampleMono').classList.add('btn-secondary');
             document.getElementById('sttExampleStereo').classList.remove('btn-success');
             document.getElementById('sttExampleStereo').classList.add('btn-secondary');
+        } else {
+            hideSttFileChip();
+            document.getElementById('rateForm').classList.add('hidden');
+            document.getElementById('sampleRateInput').value = '48000';
         }
     });
 
@@ -770,6 +815,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('fileInput').value = '';
         document.getElementById('rateForm').classList.add('hidden');
         document.getElementById('sampleRateInput').value = '48000';
+        showSttFileChip(key, null);
+        sttCheckDirty();
         // Highlight active button
         document.getElementById('sttExampleMono').classList.remove('btn-success');
         document.getElementById('sttExampleMono').classList.add('btn-secondary');
@@ -792,7 +839,7 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         var formData = new FormData(this);
         var file = formData.get('file');
-        var lang = formData.get('lang');
+        var lang = currentSttLang;
         var rate = formData.get('sampleRate');
         
         // Check if user selected a file or an example
@@ -804,11 +851,17 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        document.getElementById('processingStt').style.display = 'inline-block';
-        document.getElementById('sendButtonStt').style.display = 'none';
-        
+        sttLastParams = null;
+        sttSetLoading(true);
+
         document.getElementById('resultStt').innerHTML = '';
         document.getElementById('dialogueSection').innerHTML = '';
+        document.getElementById('dialogueSection').style.display = '';
+        document.getElementById('rawTextSection').style.display = 'none';
+        document.getElementById('rawTextContent').textContent = '';
+        document.getElementById('rawTextMeta').textContent = '';
+        var rawToggleTrack = document.getElementById('rawTextToggleTrack');
+        if (rawToggleTrack) rawToggleTrack.classList.remove('active');
         document.getElementById('speakerAnalysisSection').innerHTML = '';
         document.getElementById('conversationAnalysisSection').innerHTML = '';
         document.getElementById('speakerAnalysisSection').style.display = 'none';
@@ -816,14 +869,22 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('toggleSpeakerBtn').querySelector('.collapse-arrow').classList.remove('open');
         document.getElementById('toggleConversationBtn').querySelector('.collapse-arrow').classList.remove('open');
         document.getElementById('summarySection').innerHTML = '';
+        document.getElementById('llmResultSection').style.display = 'none';
         
         function submitSttRequest(audioBlob, fileName) {
             var fd = new FormData();
             fd.append('file', audioBlob, fileName);
             fd.append('lang', lang);
             fd.append('rate', rate);
-            fd.append('summaryInstruction', document.getElementById('summaryInstructionInput').value);
             fd.append('speakerLabeling', document.getElementById('speakerLabelingToggle').checked ? 'true' : 'false');
+            if (document.getElementById('llmToggleTrack').classList.contains('active')) {
+                fd.append('summaryInstruction', document.getElementById('summaryInstructionInput').value);
+                fd.append('llmModel', currentLlmModel);
+            }
+            fd.append('normalization', document.getElementById('normalizationToggle').checked ? 'true' : 'false');
+            fd.append('profanityFilter', document.getElementById('profanityFilterToggle').checked ? 'true' : 'false');
+            fd.append('literaryText', document.getElementById('literaryTextToggle').checked ? 'true' : 'false');
+            fd.append('speakerGrouping', document.getElementById('speakerGroupingToggle').checked ? 'true' : 'false');
             return fetch(API_BASE + 'stt', { method: 'POST', body: fd }).then(function(r) { return r.json(); });
         }
 
@@ -840,8 +901,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(function(error) {
                     console.error('Error in STT process:', error);
-                    document.getElementById('processingStt').style.display = 'none';
-                    document.getElementById('sendButtonStt').style.display = 'inline-block';
+                    sttSetLoading(false);
                 });
         } else {
             // User file — upload directly to backend
@@ -852,8 +912,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(function(error) {
                     console.error('Error in STT process:', error);
-                    document.getElementById('processingStt').style.display = 'none';
-                    document.getElementById('sendButtonStt').style.display = 'inline-block';
+                    sttSetLoading(false);
                 });
         }
     });
@@ -867,9 +926,10 @@ function checkOperationStatus(operationId) {
             .then(response => {
                 if (response.done === "true") {
                     console.log('Operation completed successfully');
-                    
-                    document.getElementById('processingStt').style.display = 'none';
-                    document.getElementById('sendButtonStt').style.display = 'inline-block';
+
+                    sttSetLoading(false);
+                    sttMarkDone();
+                    document.getElementById('sttResults').style.display = '';
                     
                     // Display beautified JSON
                     var resultSttDiv = document.getElementById("resultStt");
@@ -952,47 +1012,23 @@ function checkOperationStatus(operationId) {
                         const bubble = document.createElement('div');
                         bubble.className = 'dialogue-bubble ' + side;
                         
-                        // Build tooltip from first alternative
                         const alt = chunk.alternatives[0];
-                        const tooltip = document.createElement('div');
-                        tooltip.className = 'bubble-tooltip';
-                        
-                        // Time row
-                        var timeRow = document.createElement('div');
-                        timeRow.className = 'tooltip-row';
-                        timeRow.innerHTML = '<span class="tooltip-label">Time:</span>' +
-                            formatTimestamp(alt.startTimeMs) + ' – ' + formatTimestamp(alt.endTimeMs);
-                        tooltip.appendChild(timeRow);
-                        
-                        // Words count row
-                        var wordsRow = document.createElement('div');
-                        wordsRow.className = 'tooltip-row';
-                        var wordCount = (alt.words && alt.words.length) ? alt.words.length : 0;
-                        wordsRow.innerHTML = '<span class="tooltip-label">Words:</span>' + wordCount;
-                        tooltip.appendChild(wordsRow);
-                        
-                        // Confidence row
-                        if (alt.confidence) {
-                            var confRow = document.createElement('div');
-                            confRow.className = 'tooltip-row';
-                            confRow.innerHTML = '<span class="tooltip-label">Confidence:</span>' +
-                                (parseFloat(alt.confidence) * 100).toFixed(1) + '%';
-                            tooltip.appendChild(confRow);
+
+                        // Inline time label
+                        if (alt.startTimeMs !== undefined || alt.endTimeMs !== undefined) {
+                            function fmtShort(ms) {
+                                if (!ms) return '0:00';
+                                var t = Math.floor(parseInt(ms) / 1000);
+                                var m = Math.floor(t / 60);
+                                var s = t % 60;
+                                return m + ':' + (s < 10 ? '0' : '') + s;
+                            }
+                            var timeEl = document.createElement('div');
+                            timeEl.className = 'bubble-time';
+                            timeEl.textContent = fmtShort(alt.startTimeMs) + ' – ' + fmtShort(alt.endTimeMs);
+                            bubble.appendChild(timeEl);
                         }
-                        
-                        // Language row
-                        if (alt.languages && alt.languages.length > 0) {
-                            var langRow = document.createElement('div');
-                            langRow.className = 'tooltip-row';
-                            var langParts = alt.languages.map(function(l) {
-                                return l.language_code + ' (' + (parseFloat(l.probability) * 100).toFixed(1) + '%)';
-                            });
-                            langRow.innerHTML = '<span class="tooltip-label">Language:</span>' + langParts.join(', ');
-                            tooltip.appendChild(langRow);
-                        }
-                        
-                        bubble.appendChild(tooltip);
-                        
+
                         const content = document.createElement('div');
                         content.textContent = text;
                         bubble.appendChild(content);
@@ -1004,6 +1040,33 @@ function checkOperationStatus(operationId) {
                         clearfix.className = 'dialogue-clearfix';
                         dialogueSection.appendChild(clearfix);
                     });
+
+                    // Build raw text view
+                    (function() {
+                        var rawLines = result
+                            .filter(function(c) { return c.alternatives && c.alternatives[0] && c.alternatives[0].text; })
+                            .map(function(c) { return c.alternatives[0].text.trim(); })
+                            .filter(function(t) { return t; })
+                            .join(' ');
+                        document.getElementById('rawTextContent').textContent = rawLines;
+
+                        function fmtMin(ms) {
+                            var t = Math.floor(parseInt(ms || 0) / 1000);
+                            var m = Math.floor(t / 60);
+                            var s = t % 60;
+                            return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+                        }
+                        var firstMs = 0, lastMs = 0;
+                        result.forEach(function(chunk) {
+                            var alt = chunk.alternatives && chunk.alternatives[0];
+                            if (!alt) return;
+                            var startMs = parseInt(alt.startTimeMs || (alt.words && alt.words[0] && alt.words[0].start_time_ms) || 0) || 0;
+                            var endMs   = parseInt(alt.endTimeMs   || (alt.words && alt.words.length && alt.words[alt.words.length - 1] && alt.words[alt.words.length - 1].end_time_ms) || 0) || 0;
+                            if (!firstMs || startMs < firstMs) firstMs = startMs;
+                            if (endMs > lastMs) lastMs = endMs;
+                        });
+                        document.getElementById('rawTextMeta').textContent = fmtMin(firstMs) + ' - ' + fmtMin(lastMs);
+                    })();
 
                     // Render Speaker Analysis
                     const speakerAnalysis = response.result.speakerAnalysis;
@@ -1177,6 +1240,7 @@ function checkOperationStatus(operationId) {
                     summarySection.innerHTML = '';
                     
                     if (summaryData && summaryData.results && summaryData.results.length > 0) {
+                        document.getElementById('llmResultSection').style.display = '';
                         const card = document.createElement('div');
                         card.className = 'analysis-card';
                         
@@ -1252,8 +1316,6 @@ function checkOperationStatus(operationId) {
                         }
                         
                         summarySection.appendChild(card);
-                    } else {
-                        summarySection.innerHTML = '<div class="analysis-card">No summarization data available.</div>';
                     }
                 } else {
                     setTimeout(checkStatus, 5000);
@@ -1261,8 +1323,7 @@ function checkOperationStatus(operationId) {
             })
             .catch(error => {
                 console.error('Error checking operation status:', error);
-                document.getElementById('processingStt').style.display = 'none';
-                document.getElementById('sendButtonStt').style.display = 'inline-block';
+                sttSetLoading(false);
             });
     }
     
@@ -1386,16 +1447,20 @@ async function startStreaming() {
         });
         
         const lang = document.getElementById('streamLanguageSelect').value;
-        const streamSummaryInstruction = document.getElementById('streamSummaryInstructionInput').value;
-        
+
         // Clear previous summary
         document.getElementById('streamSummarySection').innerHTML = '';
-        
+
         // Create WebSocket connection — derive ws(s):// URL from API_BASE so
         // the path prefix is preserved when running behind a reverse proxy.
         let wsUrl = API_BASE.replace(/^http/, 'ws') + 'stream?lang=' + lang;
-        if (streamSummaryInstruction) {
-            wsUrl += '&summaryInstruction=' + encodeURIComponent(streamSummaryInstruction);
+        var streamLlmOn = document.getElementById('streamLlmToggleTrack').classList.contains('active');
+        if (streamLlmOn) {
+            var streamSummaryInstruction = document.getElementById('streamSummaryInstructionInput').value;
+            if (streamSummaryInstruction) {
+                wsUrl += '&summaryInstruction=' + encodeURIComponent(streamSummaryInstruction);
+            }
+            wsUrl += '&llmModel=' + encodeURIComponent(currentStreamLlmModel);
         }
         const classifiersEnabled = document.getElementById('streamClassifiersToggle').checked;
         if (classifiersEnabled) {
@@ -1613,3 +1678,332 @@ function stopStreaming() {
         partialText.textContent = '';
     }
 }
+
+function sttSetLoading(loading) {
+    var btn = document.getElementById('sendButtonStt');
+    if (loading) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+    } else {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+    }
+}
+
+function formatModelName(id) {
+    // id format: gpt://folder_id/model_name  or  gpt://folder_id/model_name/version
+    var parts = id.split('/');
+    if (parts.length < 4) return id;
+    var name = parts[3];
+    var ver  = parts[4] || '';
+    return ver ? name + ' (' + ver + ')' : name;
+}
+
+function loadLlmModels(btnId, contentId, onSelect) {
+    var btn     = document.getElementById(btnId);
+    var content = document.getElementById(contentId);
+    btn.textContent = 'Загрузка моделей…';
+    content.innerHTML = '';
+
+    fetch(API_BASE + 'models')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) throw new Error(data.error);
+            var models = (data.data || []).filter(function(m) {
+                return m.id && m.id.startsWith('gpt://') && !m.id.includes('/deprecated');
+            });
+            if (!models.length) { btn.textContent = 'Нет моделей'; return; }
+
+            // Auto-select first model
+            var firstLabel = formatModelName(models[0].id);
+            btn.textContent = firstLabel;
+            onSelect(models[0].id);
+
+            models.forEach(function(m) {
+                var label = formatModelName(m.id);
+                var item  = document.createElement('a');
+                item.textContent = label;
+                item.onclick = function() {
+                    btn.textContent = label;
+                    content.classList.remove('show');
+                    onSelect(m.id);
+                };
+                content.appendChild(item);
+            });
+        })
+        .catch(function(err) {
+            console.error('Failed to load models:', err);
+            btn.textContent = 'Ошибка загрузки';
+        });
+}
+
+function getSttCurrentParams() {
+    var file = document.getElementById('fileInput').files[0];
+    var llmOn = document.getElementById('llmToggleTrack').classList.contains('active');
+    return {
+        lang:               currentSttLang,
+        normalization:      document.getElementById('normalizationToggle').checked,
+        profanityFilter:    document.getElementById('profanityFilterToggle').checked,
+        literaryText:       document.getElementById('literaryTextToggle').checked,
+        speakerLabeling:    document.getElementById('speakerLabelingToggle').checked,
+        speakerGrouping:    document.getElementById('speakerGroupingToggle').checked,
+        llmEnabled:         llmOn,
+        llmModel:           llmOn ? currentLlmModel : '',
+        summaryInstruction: llmOn ? (document.getElementById('summaryInstructionInput').value || '').trim() : '',
+        fileId:             sttExampleKey || (file ? file.name + ':' + file.size : null),
+    };
+}
+
+function sttMarkDone() {
+    sttLastParams = getSttCurrentParams();
+    document.getElementById('sendButtonStt').disabled = true;
+}
+
+function sttCheckDirty() {
+    if (!sttLastParams) return;
+    var dirty = JSON.stringify(getSttCurrentParams()) !== JSON.stringify(sttLastParams);
+    document.getElementById('sendButtonStt').disabled = !dirty;
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2).replace('.', ',') + ' КБ';
+    return (bytes / (1024 * 1024)).toFixed(2).replace('.', ',') + ' МБ';
+}
+
+function showSttFileChip(name, size) {
+    document.getElementById('sttFileChipName').textContent = name;
+    var sizeEl = document.getElementById('sttFileChipSize');
+    sizeEl.textContent = size ? formatFileSize(size) : '';
+    // toggle separators visibility based on whether size is present
+    var seps = document.querySelectorAll('#sttFileChip .stt-file-chip-sep');
+    if (seps[1]) seps[1].style.display = size ? '' : 'none';
+    document.getElementById('sttFileChip').style.display = 'flex';
+    document.getElementById('sttUploadZone').style.display = 'none';
+}
+
+function hideSttFileChip() {
+    document.getElementById('sttFileChip').style.display = 'none';
+    document.getElementById('sttUploadZone').style.display = '';
+}
+
+// STT tab — new UI setup
+document.addEventListener('DOMContentLoaded', function() {
+    var sttLangOptions = [
+        { label: 'Русский',             value: 'ru-RU' },
+        { label: 'Автоматически',       value: 'auto'  },
+        { label: 'Английский',          value: 'en-US' },
+        { label: 'Немецкий',            value: 'de-DE' },
+        { label: 'Испанский',           value: 'es-ES' },
+        { label: 'Французский',         value: 'fr-FR' },
+        { label: 'Итальянский',         value: 'it-IT' },
+        { label: 'Казахский',           value: 'kk-KZ' },
+        { label: 'Турецкий',            value: 'tr-TR' },
+        { label: 'Узбекский',           value: 'uz-UZ' },
+        { label: 'Польский',            value: 'pl-PL' },
+        { label: 'Португальский',           value: 'pt-PT' },
+        { label: 'Португальский (Бразилия)', value: 'pt-BR' },
+        { label: 'Нидерландский',       value: 'nl-NL' },
+        { label: 'Финский',             value: 'fi-FI' },
+        { label: 'Шведский',            value: 'sv-SE' },
+        { label: 'Иврит',               value: 'he-IL' },
+    ];
+
+    var sttLangBtn = document.getElementById('sttLangDropdown');
+    var sttLangContent = document.getElementById('sttLangDropdownContent');
+
+    sttLangBtn.addEventListener('click', function() {
+        sttLangContent.classList.toggle('show');
+    });
+
+    sttLangOptions.forEach(function(opt) {
+        var item = document.createElement('a');
+        item.textContent = opt.label;
+        item.onclick = function() {
+            currentSttLang = opt.value;
+            sttLangBtn.textContent = opt.label;
+            sttLangContent.classList.remove('show');
+            sttCheckDirty();
+            // Disable normalization for auto-detect (normalization not supported with auto)
+            var normToggle = document.getElementById('normalizationToggle');
+            if (opt.value === 'auto') {
+                normToggle.checked = false;
+                normToggle.disabled = true;
+                document.getElementById('profanityFilterToggle').disabled = true;
+                document.getElementById('profanityFilterToggle').checked = false;
+                document.getElementById('literaryTextToggle').disabled = true;
+                document.getElementById('literaryTextToggle').checked = false;
+            } else {
+                normToggle.disabled = false;
+                // Sub-checkboxes follow normalization toggle state
+                var normEnabled = normToggle.checked;
+                document.getElementById('profanityFilterToggle').disabled = !normEnabled;
+                document.getElementById('literaryTextToggle').disabled = !normEnabled;
+            }
+        };
+        sttLangContent.appendChild(item);
+    });
+
+    // Normalization toggle controls sub-checkboxes
+    document.getElementById('normalizationToggle').addEventListener('change', function() {
+        var enabled = this.checked;
+        document.getElementById('profanityFilterToggle').disabled = !enabled;
+        document.getElementById('literaryTextToggle').disabled = !enabled;
+        if (!enabled) {
+            document.getElementById('profanityFilterToggle').checked = false;
+            document.getElementById('literaryTextToggle').checked = false;
+        }
+        sttCheckDirty();
+    });
+
+    document.getElementById('profanityFilterToggle').addEventListener('change', sttCheckDirty);
+    document.getElementById('literaryTextToggle').addEventListener('change', sttCheckDirty);
+
+    // Speaker labeling toggle controls grouping sub-checkbox
+    document.getElementById('speakerLabelingToggle').addEventListener('change', function() {
+        var enabled = this.checked;
+        document.getElementById('speakerGroupingToggle').disabled = !enabled;
+        if (!enabled) {
+            document.getElementById('speakerGroupingToggle').checked = false;
+        }
+        sttCheckDirty();
+    });
+
+    document.getElementById('speakerGroupingToggle').addEventListener('change', sttCheckDirty);
+
+    // LLM model dropdown toggle (STT)
+    document.getElementById('llmModelDropdown').addEventListener('click', function() {
+        document.getElementById('llmModelDropdownContent').classList.toggle('show');
+    });
+
+    // LLM toggle (STT)
+    var llmModelsLoaded = false;
+    document.getElementById('llmToggleTrack').addEventListener('click', function() {
+        var active = this.classList.toggle('active');
+        document.getElementById('llmOptions').style.display = active ? '' : 'none';
+        if (active && !llmModelsLoaded) {
+            llmModelsLoaded = true;
+            loadLlmModels('llmModelDropdown', 'llmModelDropdownContent', function(v) {
+                currentLlmModel = v; sttCheckDirty();
+            });
+        }
+        sttCheckDirty();
+    });
+
+    document.getElementById('summaryInstructionInput').addEventListener('input', sttCheckDirty);
+
+    // LLM model dropdown toggle (stream)
+    document.getElementById('streamLlmModelDropdown').addEventListener('click', function() {
+        document.getElementById('streamLlmModelDropdownContent').classList.toggle('show');
+    });
+
+    // LLM toggle (stream)
+    var streamLlmModelsLoaded = false;
+    document.getElementById('streamLlmToggleTrack').addEventListener('click', function() {
+        var active = this.classList.toggle('active');
+        document.getElementById('streamLlmOptions').style.display = active ? '' : 'none';
+        if (active && !streamLlmModelsLoaded) {
+            streamLlmModelsLoaded = true;
+            loadLlmModels('streamLlmModelDropdown', 'streamLlmModelDropdownContent', function(v) {
+                currentStreamLlmModel = v;
+            });
+        }
+    });
+
+    // Choose file button
+    document.getElementById('sttChooseFileBtn').addEventListener('click', function() {
+        document.getElementById('fileInput').click();
+    });
+
+    // Reset STT params to defaults
+    document.getElementById('resetSttParamsBtn').addEventListener('click', function() {
+        currentSttLang = 'ru-RU';
+        document.getElementById('sttLangDropdown').textContent = 'Русский';
+
+        var normEl = document.getElementById('normalizationToggle');
+        normEl.checked = false;
+        normEl.disabled = false;
+        document.getElementById('profanityFilterToggle').checked = false;
+        document.getElementById('profanityFilterToggle').disabled = true;
+        document.getElementById('literaryTextToggle').checked = false;
+        document.getElementById('literaryTextToggle').disabled = true;
+
+        document.getElementById('speakerLabelingToggle').checked = false;
+        document.getElementById('speakerGroupingToggle').checked = false;
+        document.getElementById('speakerGroupingToggle').disabled = true;
+
+        sttCheckDirty();
+    });
+
+    // Raw text toggle
+    document.getElementById('rawTextToggleTrack').addEventListener('click', function() {
+        var active = this.classList.toggle('active');
+        document.getElementById('dialogueSection').style.display  = active ? 'none' : '';
+        document.getElementById('rawTextSection').style.display   = active ? ''     : 'none';
+    });
+
+    // Copy dialogue / raw text
+    document.getElementById('copyDialogueBtn').addEventListener('click', function() {
+        var isRaw = document.getElementById('rawTextToggleTrack').classList.contains('active');
+        var text;
+        if (isRaw) {
+            text = document.getElementById('rawTextContent').textContent;
+        } else {
+            text = Array.from(document.querySelectorAll('#dialogueSection .dialogue-bubble'))
+                .map(function(b) { var d = b.querySelector('div'); return d ? d.textContent : b.textContent; })
+                .join('\n');
+        }
+        var btn = this;
+        navigator.clipboard.writeText(text).then(function() {
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg> Скопировано';
+            btn.classList.add('copied');
+            setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('copied'); }, 1800);
+        });
+    });
+
+    // Remove file chip
+    document.getElementById('sttFileRemoveBtn').addEventListener('click', function() {
+        document.getElementById('fileInput').value = '';
+        sttExampleKey = null;
+        hideSttFileChip();
+        document.getElementById('rateForm').classList.add('hidden');
+        document.getElementById('sampleRateInput').value = '48000';
+        document.getElementById('sttExampleMono').classList.remove('btn-success');
+        document.getElementById('sttExampleMono').classList.add('btn-secondary');
+        document.getElementById('sttExampleStereo').classList.remove('btn-success');
+        document.getElementById('sttExampleStereo').classList.add('btn-secondary');
+        sttCheckDirty();
+    });
+
+    // Drag and drop on upload zone
+    var uploadZone = document.getElementById('sttUploadZone');
+
+    uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.remove('dragover');
+        var files = e.dataTransfer.files;
+        if (files.length > 0) {
+            var fileInput = document.getElementById('fileInput');
+            // DataTransfer is the only way to programmatically set files
+            var dt = new DataTransfer();
+            dt.items.add(files[0]);
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+});

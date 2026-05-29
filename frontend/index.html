@@ -171,68 +171,156 @@
         
         <div class="tab-content" id="speechToText">
             <div class="tab-description">
-                <p>Распознавание речи (speech-to-text — STT) — это процесс преобразования речи в текст.</p>
-                <p>Загрузите аудиофайл и нажмите <strong>Отправить</strong>.</p>
+                <p>Распознавание речи (speech-to-text - STT) - это процесс преобразования речи в текст.</p>
+                <p>Загрузите аудиофайл, настройте параметры распознавания и нажмите кнопку <strong>Распознать</strong>.</p>
             </div>
 
             <form id="audioUploadForm" enctype="multipart/form-data">
-                <div class="form-group">
-                    <div class="field-annotation">Загрузка аудиофайла<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/formats.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет распознавать и синтезировать аудио в форматах: LPCM, OggOpus, MP3</span></a></div>
-                    <input type="file" id="fileInput" name="file">
-                    <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
-                        <span style="font-size: 0.8em; color: #7f8c8d;">или выберите пример:</span>
-                        <button type="button" id="sttExampleMono" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> example-mono.mp3</button>
-                        <button type="button" id="sttExampleStereo" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> example-stereo.mp3</button>
+
+                <div class="stt-params-header">
+                    <span class="field-annotation-lg">Параметры распознавания</span>
+                    <button type="button" id="resetSttParamsBtn" class="stt-reset-btn">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        Очистить
+                    </button>
+                </div>
+                <div class="stt-section">
+
+                    <div class="stt-row stt-row-lang">
+                        <span class="stt-row-label">Язык</span>
+                        <div class="custom-dropdown" style="margin: 0;">
+                            <button type="button" id="sttLangDropdown">Русский</button>
+                            <div class="dropdown-content" id="sttLangDropdownContent"></div>
+                        </div>
+                    </div>
+
+                    <div class="stt-row">
+                        <label class="stt-checkbox-label">
+                            <input type="checkbox" id="normalizationToggle">
+                            <span>Нормализация текста</span>
+                            <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/normalization.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Позволяет представлять даты и время в цифровом формате, преобразовывать числа из словарного в цифровой формат, а также открывает доступ к дополнительным уровням нормализации.</span></a>
+                        </label>
+                    </div>
+
+                    <div class="stt-row stt-row-sub">
+                        <label class="stt-checkbox-label">
+                            <input type="checkbox" id="profanityFilterToggle" disabled>
+                            <span>Фильтрация обсценной лексики</span>
+                            <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/normalization.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Маскировать нецензурную лексику звёздочками в результатах распознавания.</span></a>
+                        </label>
+                    </div>
+
+                    <div class="stt-row stt-row-sub">
+                        <label class="stt-checkbox-label">
+                            <input type="checkbox" id="literaryTextToggle" disabled>
+                            <span>Литературный текст</span>
+                            <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/normalization.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Добавление заглавной буквы в начале предложения и в именах собственных. Добавление знаков пунктуации.</span></a>
+                        </label>
+                    </div>
+
+                    <div class="stt-row">
+                        <label class="stt-checkbox-label">
+                            <input type="checkbox" id="speakerLabelingToggle">
+                            <span>Определение дикторов</span>
+                            <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit в результатах распознавания может указывать, какому из дикторов принадлежит каждая распознанная фраза. Работает только для моноканальных записей. Максимум два диктора.</span></a>
+                        </label>
+                    </div>
+
+                    <div class="stt-row stt-row-sub">
+                        <label class="stt-checkbox-label">
+                            <input type="checkbox" id="speakerGroupingToggle" disabled>
+                            <span>Группировка фраз дикторов</span>
+                            <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Группировать последовательные реплики одного диктора в единый блок.</span></a>
+                        </label>
                     </div>
                 </div>
-                
-                <div class="form-group">
-                    <div class="field-annotation">Язык<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/models#languages" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Сервис SpeechKit в ходе распознавания речи автоматически определяет язык в каждом отдельном предложении. Также язык можно указать вручную.</span></a></div>
-                    <select id="languageSelect" name="lang">
-                        <option value="ru-RU">Русский</option>
-                        <option value="auto">Автоматически</option>
-                        <option value="en-US">Английский</option>
-                        <option value="kk-KZ">Казахский</option>
-                        <option value="tr-TR">Турецкий</option>
-                        <option value="uz-UZ">Узбекский</option>
-                        <option value="de-DE">Немецкий</option>
-                        <option value="es-ES">Испанский</option>
-                        <option value="fr-FR">Французский</option>
-                        <option value="it-IT">Итальянский</option>
-                        <option value="pl-PL">Польский</option>
-                    </select>
+
+                <div class="stt-upload-zone" id="sttUploadZone">
+                    <input type="file" id="fileInput" name="file" accept=".mp3,.ogg,.wav,audio/mpeg,audio/ogg,audio/wav" style="display: none;">
+                    <div class="stt-upload-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                    </div>
+                    <div class="stt-upload-title">Выберите или перетащите сюда аудиофайл</div>
+                    <div class="stt-upload-hint">MP3, OGG или WAV, максимальный размер файла — 100 МБ</div>
+                    <button type="button" id="sttChooseFileBtn" class="btn-secondary" style="margin: 0;">Выбрать файл</button>
                 </div>
-                
-                <div class="form-group">
-                    <div class="field-annotation">Определение дикторов<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit в результатах распознавания может указывать, какому из дикторов принадлежит каждая распознанная фраза. Определение дикторов работает для распознавания в режиме FULL_DATA только для монозаписей. В результатах распознавания может быть не больше двух дикторов.</span></a></div>
-                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
-                        <input type="checkbox" id="speakerLabelingToggle">
-                        Включить определение дикторов (только моно)
-                    </label>
+
+                <div id="sttFileChip" class="stt-file-chip">
+                    <span class="stt-file-chip-check">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <span class="stt-file-chip-sep">•</span>
+                    <span id="sttFileChipName" class="stt-file-chip-name"></span>
+                    <span class="stt-file-chip-sep">•</span>
+                    <span id="sttFileChipSize" class="stt-file-chip-size"></span>
+                    <button type="button" id="sttFileRemoveBtn" class="stt-file-chip-remove" title="Удалить файл">✕</button>
+                </div>
+
+                <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center;">
+                    <span style="font-size: 0.8em; color: #7f8c8d;">или выберите пример:</span>
+                    <button type="button" id="sttExampleMono" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> example-mono.mp3</button>
+                    <button type="button" id="sttExampleStereo" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> example-stereo.mp3</button>
                 </div>
 
                 <div class="form-group hidden" id="rateForm">
                     <div class="field-annotation">Частота дискретизации (кГц)<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/formats#lpcm" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">В зависимости от используемой дискретизации WAV-файла, выберите значение совпадающее с параметрами файла.</span></a></div>
                     <input type="number" id="sampleRateInput" name="sampleRate" value="48000">
                 </div>
-                
-                <div class="form-group">
-                    <div class="field-annotation">Промпт модели<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет не только распознавать аудио, но и обрабатывать результаты распознавания с помощью больших генеративных моделей. Таким образом можно автоматизировать обработку результатов распознавания речи, например, сразу же получить краткий пересказ распознанного аудио, на основе аудио заполнить определенные поля в CRM-системе или перевести диалог на английский язык.</span></a></div>
-                    <textarea id="summaryInstructionInput" name="summaryInstruction" rows="3" style="font-size: 0.85rem;">Кратко суммаризируй диалог и подведи итог.</textarea>
+
+                <div class="llm-section" style="margin-top: 16px;">
+                    <div class="llm-header">
+                        <label class="raw-text-toggle-label">
+                            <span class="raw-text-toggle-track" id="llmToggleTrack">
+                                <span class="raw-text-toggle-thumb"></span>
+                            </span>
+                            <span class="field-annotation-lg" style="margin-bottom: 0;">Обработка результатов LLM</span>
+                        </label>
+                        <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет обрабатывать результаты распознавания с помощью LLM: получить краткий пересказ, заполнить поля CRM, перевести диалог и т.д.</span></a>
+                    </div>
+                    <div id="llmOptions" class="llm-options" style="display: none;">
+                        <div style="margin-top: 12px; margin-bottom: 10px;">
+                            <div class="field-annotation">Модель<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Выберите LLM-модель с помощью которой будет обработан результат распознавания.</span></a></div>
+                            <div class="custom-dropdown" style="margin: 0;">
+                                <button type="button" id="llmModelDropdown">Выберите модель</button>
+                                <div class="dropdown-content" id="llmModelDropdownContent"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="field-annotation">Инструкция</div>
+                            <textarea id="summaryInstructionInput" name="summaryInstruction" rows="3" style="font-size: 0.85rem;">Кратко суммаризируй диалог и подведи итог.</textarea>
+                        </div>
+                    </div>
                 </div>
-                
-                <button id="sendButtonStt" type="submit">Отправить</button>
-                <button id="processingStt" disabled style="display: none;">
-                    <span class="spinner"></span>
-                    <span>Обработка запроса...</span>
+
+                <button id="sendButtonStt" type="submit" class="tts-wide-btn" style="margin-top: 20px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Распознать
                 </button>
             </form>
             
-            <div class="field-annotation" style="margin-top: 20px;">Диалог<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit в результатах распознавания может указывать, какому из дикторов принадлежит каждая распознанная фраза.</span></a></div>
+            <div id="sttResults" style="display:none;">
+            <div class="dialogue-toolbar" style="margin-top: 20px;">
+                <label class="raw-text-toggle-label" id="rawTextToggleLabel">
+                    <span class="raw-text-toggle-track" id="rawTextToggleTrack">
+                        <span class="raw-text-toggle-thumb"></span>
+                    </span>
+                    <span>Текст без нормализации и разметки дикторов</span>
+                </label>
+                <button type="button" id="copyDialogueBtn" class="btn-copy-dialogue">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 14H19C20.1046 14 21 13.1046 21 12V5C21 3.89543 20.1046 3 19 3H12C10.8954 3 10 3.89543 10 5V6.5M5 10H12C13.1046 10 14 10.8954 14 12V19C14 20.1046 13.1046 21 12 21H5C3.89543 21 3 20.1046 3 19V12C3 10.8954 3.89543 10 5 10Z"/></svg>
+                    Скопировать
+                </button>
+            </div>
             <div id="dialogueSection" class="dialogue-container"></div>
+            <div id="rawTextSection" class="raw-text-section" style="display:none;">
+                <div id="rawTextMeta" class="raw-text-meta"></div>
+                <div id="rawTextContent" class="raw-text-body"></div>
+            </div>
 
-            <div class="field-annotation" style="margin-top: 20px;">Результат обработки LLM<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Результат обработки зависит от промпта. В промпте можно запросить необходимую схему, которой должен соответствовать ответ модели.</span></a></div>
-            <div id="summarySection" class="analysis-section" style="display: block;"></div>
+            <div id="llmResultSection" style="display: none;">
+                <div class="field-annotation-lg" style="margin-top: 20px;">Результат обработки LLM<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Результат обработки зависит от промпта. В промпте можно запросить необходимую схему, которой должен соответствовать ответ модели.</span></a></div>
+                <div id="summarySection" class="analysis-section" style="display: block;"></div>
+            </div>
 
             <div class="field-annotation collapsible" style="margin-top: 20px;" id="toggleSpeakerBtn">
                 <span class="collapse-arrow"></span> Статистика участников<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#statistics" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет анализировать диалоги и речь отдельных участников и подсчитывать статистики для каждого участника и для диалога в целом. Результаты анализа содержат дискретные характеристики аудио и описательные статистики распределений этих значений.
@@ -257,6 +345,7 @@
                     <button class="copy-btn" id="copyJsonBtn" title="Скопировать"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 14H19C20.1046 14 21 13.1046 21 12V5C21 3.89543 20.1046 3 19 3H12C10.8954 3 10 3.89543 10 5V6.5M5 10H12C13.1046 10 14 10.8954 14 12V19C14 20.1046 13.1046 21 12 21H5C3.89543 21 3 20.1046 3 19V12C3 10.8954 3.89543 10 5 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                 </div>
             </div>
+            </div><!-- /sttResults -->
         </div>
         
         <div class="tab-content" id="streamRecognition">
@@ -265,9 +354,29 @@
                 <p>Нажмите <strong>Начать запись</strong> и говорите в микрофон, чтобы начать потоковое распознавание.</p>
             </div>
             
-            <div class="form-group">
-                <div class="field-annotation">Промпт модели<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Промпт для обработки результатов распознавания с помощью LLM. Результат суммаризации будет получен после остановки записи.</span></a></div>
-                <textarea id="streamSummaryInstructionInput" rows="3" style="font-size: 0.85rem;">Кратко суммаризируй диалог и подведи итог.</textarea>
+            <div class="llm-section">
+                <div class="llm-header">
+                    <label class="raw-text-toggle-label">
+                        <span class="raw-text-toggle-track" id="streamLlmToggleTrack">
+                            <span class="raw-text-toggle-thumb"></span>
+                        </span>
+                        <span class="field-annotation-lg" style="margin-bottom: 0;">Обработка результатов LLM</span>
+                    </label>
+                    <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Промпт для обработки результатов распознавания с помощью LLM. Результат суммаризации будет получен после остановки записи.</span></a>
+                </div>
+                <div id="streamLlmOptions" class="llm-options" style="display: none;">
+                    <div style="margin-top: 12px; margin-bottom: 10px;">
+                        <div class="field-annotation">Модель<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Выберите LLM-модель с помощью которой будет обработан результат распознавания.</span></a></div>
+                        <div class="custom-dropdown" style="margin: 0;">
+                            <button type="button" id="streamLlmModelDropdown">Выберите модель</button>
+                            <div class="dropdown-content" id="streamLlmModelDropdownContent"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="field-annotation">Инструкция</div>
+                        <textarea id="streamSummaryInstructionInput" rows="3" style="font-size: 0.85rem;">Кратко суммаризируй диалог и подведи итог.</textarea>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
@@ -314,7 +423,7 @@
                 <div id="partialText" style="color: #7f8c8d; font-style: italic;"></div>
             </div>
 
-            <div class="field-annotation" style="margin-top: 20px;">Результат обработки LLM<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Результат суммаризации потокового распознавания. Данные поступают после завершения записи.</span></a></div>
+            <div class="field-annotation-lg" style="margin-top: 20px;">Результат обработки LLM<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Результат суммаризации потокового распознавания. Данные поступают после завершения записи.</span></a></div>
             <div id="streamSummarySection" class="analysis-section" style="display: block;"></div>
         </div>
     </div>
