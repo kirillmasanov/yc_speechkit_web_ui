@@ -1947,13 +1947,14 @@ document.addEventListener('DOMContentLoaded', function() {
             label.textContent = clf.label;
             item.appendChild(label);
 
-            var help = document.createElement('a');
-            help.className = 'help-link classifier-item-help';
-            help.innerHTML = '?<span class="help-tooltip">' + clf.tooltip + '</span>';
+            var help = document.createElement('span');
+            help.className = 'classifier-item-help';
+            help.textContent = '?';
+            help.title = clf.tooltip;
             item.appendChild(help);
 
             item.addEventListener('click', function(e) {
-                if (e.target.closest('.help-link')) return;
+                if (e.target.classList.contains('classifier-item-help')) return;
                 if (selectedClassifiers.has(clf.id)) {
                     selectedClassifiers.delete(clf.id);
                     item.classList.remove('selected');
