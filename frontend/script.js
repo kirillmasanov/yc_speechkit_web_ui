@@ -870,6 +870,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('toggleConversationBtn').querySelector('.collapse-arrow').classList.remove('open');
         document.getElementById('summarySection').innerHTML = '';
         document.getElementById('llmResultSection').style.display = 'none';
+        document.getElementById('classifierResultSection').style.display = 'none';
+        document.getElementById('classifierResultContent').innerHTML = '';
         
         function submitSttRequest(audioBlob, fileName) {
             var fd = new FormData();
@@ -877,6 +879,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fd.append('lang', lang);
             fd.append('rate', rate);
             fd.append('speakerLabeling', document.getElementById('speakerLabelingToggle').checked ? 'true' : 'false');
+            fd.append('classifiers', document.getElementById('sttClassifiersToggle').checked ? 'all' : '');
             if (document.getElementById('llmToggleTrack').classList.contains('active')) {
                 fd.append('summaryInstruction', document.getElementById('summaryInstructionInput').value);
                 fd.append('llmModel', currentLlmModel);
@@ -1239,6 +1242,8 @@ function checkOperationStatus(operationId) {
                     const summarySection = document.getElementById('summarySection');
                     summarySection.innerHTML = '';
                     
+                    renderSttClassifiers(response.result.classifierData);
+
                     if (summaryData && summaryData.results && summaryData.results.length > 0) {
                         document.getElementById('llmResultSection').style.display = '';
                         const card = document.createElement('div');
@@ -1747,6 +1752,7 @@ function getSttCurrentParams() {
         literaryText:       document.getElementById('literaryTextToggle').checked,
         speakerLabeling:    document.getElementById('speakerLabelingToggle').checked,
         speakerGrouping:    document.getElementById('speakerGroupingToggle').checked,
+        classifiers:        document.getElementById('sttClassifiersToggle').checked,
         llmEnabled:         llmOn,
         llmModel:           llmOn ? currentLlmModel : '',
         summaryInstruction: llmOn ? (document.getElementById('summaryInstructionInput').value || '').trim() : '',
@@ -1827,6 +1833,7 @@ document.addEventListener('DOMContentLoaded', function() {
             sttCheckDirty();
             // Disable normalization for auto-detect (normalization not supported with auto)
             var normToggle = document.getElementById('normalizationToggle');
+            var classifiersToggle = document.getElementById('sttClassifiersToggle');
             if (opt.value === 'auto') {
                 normToggle.checked = false;
                 normToggle.disabled = true;
@@ -1834,12 +1841,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('profanityFilterToggle').checked = false;
                 document.getElementById('literaryTextToggle').disabled = true;
                 document.getElementById('literaryTextToggle').checked = false;
-            } else {
+                classifiersToggle.disabled = true;
+                classifiersToggle.checked = false;
+            } else if (opt.value !== 'ru-RU') {
                 normToggle.disabled = false;
-                // Sub-checkboxes follow normalization toggle state
                 var normEnabled = normToggle.checked;
                 document.getElementById('profanityFilterToggle').disabled = !normEnabled;
                 document.getElementById('literaryTextToggle').disabled = !normEnabled;
+                classifiersToggle.disabled = true;
+                classifiersToggle.checked = false;
+            } else {
+                normToggle.disabled = false;
+                var normEnabled = normToggle.checked;
+                document.getElementById('profanityFilterToggle').disabled = !normEnabled;
+                document.getElementById('literaryTextToggle').disabled = !normEnabled;
+                classifiersToggle.disabled = false;
             }
         };
         sttLangContent.appendChild(item);
@@ -1871,6 +1887,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('speakerGroupingToggle').addEventListener('change', sttCheckDirty);
+    document.getElementById('sttClassifiersToggle').addEventListener('change', sttCheckDirty);
 
     // LLM model dropdown toggle (STT)
     document.getElementById('llmModelDropdown').addEventListener('click', function() {
@@ -1932,6 +1949,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('speakerLabelingToggle').checked = false;
         document.getElementById('speakerGroupingToggle').checked = false;
         document.getElementById('speakerGroupingToggle').disabled = true;
+
+        document.getElementById('sttClassifiersToggle').checked = false;
+        document.getElementById('sttClassifiersToggle').disabled = false;
 
         sttCheckDirty();
     });
@@ -2007,3 +2027,71 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+function renderSttClassifiers(classifierData) {
+    var section = document.getElementById('classifierResultSection');
+    var content = document.getElementById('classifierResultContent');
+    content.innerHTML = '';
+
+    if (!classifierData || !classifierData.length) {
+        section.style.display = 'none';
+        return;
+    }
+
+    // Group by classifier name, keep max confidence per label
+    var byClassifier = {};
+    classifierData.forEach(function(cu) {
+        var name = cu.classifier;
+        if (!name) return;
+        if (!byClassifier[name]) byClassifier[name] = {};
+        (cu.labels || []).forEach(function(lbl) {
+            var cur = byClassifier[name][lbl.label] || 0;
+            if ((lbl.confidence || 0) > cur) byClassifier[name][lbl.label] = lbl.confidence;
+        });
+    });
+
+    var badgeColors = {
+        'insult': 'badge-red', 'profanity': 'badge-red', 'negative': 'badge-red',
+        'formal_greeting': 'badge-green', 'informal_greeting': 'badge-green',
+        'formal_farewell': 'badge-blue', 'informal_farewell': 'badge-blue',
+        'gender': 'badge-grey', 'answerphone': 'badge-grey',
+    };
+    var labelsRu = {
+        'formal_greeting': 'Формальное приветствие',
+        'informal_greeting': 'Неформальное приветствие',
+        'formal_farewell': 'Формальное прощание',
+        'informal_farewell': 'Неформальное прощание',
+        'insult': 'Оскорбления',
+        'profanity': 'Мат',
+        'gender': 'Пол',
+        'negative': 'Негатив',
+        'answerphone': 'Ответ робота',
+        'GENDER_MALE': 'Мужской',
+        'GENDER_FEMALE': 'Женский',
+    };
+
+    var badgesDiv = document.createElement('div');
+    badgesDiv.className = 'stream-badges';
+    var hasAny = false;
+
+    Object.keys(byClassifier).forEach(function(name) {
+        var colorClass = badgeColors[name] || 'badge-grey';
+        Object.keys(byClassifier[name]).forEach(function(lbl) {
+            var conf = byClassifier[name][lbl];
+            if (conf < 0.3) return;
+            var badge = document.createElement('span');
+            badge.className = 'stream-badge ' + colorClass;
+            var displayName = name === 'gender' ? (labelsRu[lbl] || lbl) : (labelsRu[name] || name);
+            badge.textContent = displayName + ' ' + Math.round(conf * 100) + '%';
+            badgesDiv.appendChild(badge);
+            hasAny = true;
+        });
+    });
+
+    if (hasAny) {
+        content.appendChild(badgesDiv);
+    } else {
+        content.innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Классификаторы не обнаружили характерных паттернов в аудио.</span>';
+    }
+    section.style.display = '';
+}

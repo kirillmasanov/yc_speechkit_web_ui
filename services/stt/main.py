@@ -56,6 +56,7 @@ async def upload_file(
     summaryInstruction: str = Form(default=''),
     speakerLabeling: bool = Form(default=False),
     llmModel: str = Form(default=''),
+    classifiers: str = Form(default=''),
 ):
     audio_bytes = await file.read()
     filename = file.filename.lower()
@@ -70,7 +71,7 @@ async def upload_file(
         return JSONResponse({"error": "Unsupported file type"}, status_code=400)
 
     operation_id = create_recognition_task(
-        audio_bytes, container_type, lang, rate, summaryInstruction, speakerLabeling, llmModel
+        audio_bytes, container_type, lang, rate, summaryInstruction, speakerLabeling, llmModel, classifiers
     )
 
     if not operation_id:
@@ -90,7 +91,7 @@ async def operation_status(operationId: str = Query(default=None)):
         logging.info("Operation in progress: {}".format(operationId))
         return JSONResponse({"message": "Operation in progress", "operation": operationId, "done": "false"})
 
-    results, speaker_analysis_list, conversation_analysis_data, summarization_data = get_recognition_results(operationId)
+    results, speaker_analysis_list, conversation_analysis_data, summarization_data, classifier_data = get_recognition_results(operationId)
 
     return JSONResponse({
         "message": "Operation is complete",
@@ -101,6 +102,7 @@ async def operation_status(operationId: str = Query(default=None)):
             "speakerAnalysis": speaker_analysis_list,
             "conversationAnalysis": conversation_analysis_data,
             "summarization": summarization_data,
+            "classifierData": classifier_data,
         },
     })
 
@@ -126,7 +128,14 @@ def _create_grpc_channel():
     return channel, metadata
 
 
-def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summary_instruction='', speaker_labeling=False, model_uri_override=''):
+_ALL_CLASSIFIERS = [
+    'formal_greeting', 'informal_greeting',
+    'formal_farewell', 'informal_farewell',
+    'insult', 'profanity', 'gender', 'negative', 'answerphone',
+]
+
+
+def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summary_instruction='', speaker_labeling=False, model_uri_override='', classifiers=''):
     channel, metadata = _create_grpc_channel()
     stub = stt_service_pb2_grpc.AsyncRecognizerStub(channel)
 
@@ -166,6 +175,23 @@ def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summa
             speaker_labeling=stt_pb2.SpeakerLabelingOptions.SPEAKER_LABELING_ENABLED,
         ))
 
+    if classifiers:
+        requested = _ALL_CLASSIFIERS if classifiers == 'all' else [
+            c.strip() for c in classifiers.split(',') if c.strip() in _ALL_CLASSIFIERS
+        ]
+        if requested:
+            recognize_request.recognition_classifier.CopyFrom(
+                stt_pb2.RecognitionClassifierOptions(
+                    classifiers=[
+                        stt_pb2.RecognitionClassifier(
+                            classifier=name,
+                            triggers=[stt_pb2.RecognitionClassifier.ON_FINAL],
+                        )
+                        for name in requested
+                    ]
+                )
+            )
+
     effective_model_uri = model_uri_override or config['model_uri']
     if effective_model_uri and summary_instruction:
         recognize_request.summarization.CopyFrom(stt_pb2.SummarizationOptions(
@@ -191,6 +217,7 @@ def get_recognition_results(operation_id):
     speaker_analysis_list = []
     conversation_analysis_data = None
     summarization_data = None
+    classifier_data = []
 
     try:
         logging.info("Fetching recognition results for operation: {}".format(operation_id))
@@ -230,7 +257,17 @@ def get_recognition_results(operation_id):
             if 'summarization' in chunk:
                 summarization_data = chunk['summarization']
 
+            if 'classifier_update' in chunk:
+                cu = chunk['classifier_update']
+                cr = cu.get('classifier_result', {})
+                classifier_data.append({
+                    'classifier': cr.get('classifier', ''),
+                    'labels': cr.get('labels', []),
+                    'startTimeMs': cu.get('start_time_ms', 0),
+                    'endTimeMs': cu.get('end_time_ms', 0),
+                })
+
     except grpc.RpcError as e:
         logging.error(f"gRPC GetRecognition failed: code={e.code()}, details={e.details()}")
 
-    return results, speaker_analysis_list, conversation_analysis_data, summarization_data
+    return results, speaker_analysis_list, conversation_analysis_data, summarization_data, classifier_data

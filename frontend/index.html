@@ -233,6 +233,14 @@
                             <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Группировать последовательные реплики одного диктора в единый блок.</span></a>
                         </label>
                     </div>
+
+                    <div class="stt-row">
+                        <label class="stt-checkbox-label">
+                            <input type="checkbox" id="sttClassifiersToggle">
+                            <span>Классификаторы</span>
+                            <a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Классификаторы — это инструмент для анализа аудио, который определяет, есть ли в распознанном тексте фраза определенной категории, например приветствие, негатив или мат. Работает только для русского языка.</span></a>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="stt-upload-zone" id="sttUploadZone">
@@ -315,6 +323,11 @@
             <div id="rawTextSection" class="raw-text-section" style="display:none;">
                 <div id="rawTextMeta" class="raw-text-meta"></div>
                 <div id="rawTextContent" class="raw-text-body"></div>
+            </div>
+
+            <div id="classifierResultSection" style="display: none;">
+                <div class="field-annotation-lg" style="margin-top: 20px;">Классификаторы<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Классификаторы — это инструмент для анализа аудио, который определяет, есть ли в распознанном тексте фраза определенной категории, например приветствие, негатив или мат. Работает только для русского языка.</span></a></div>
+                <div id="classifierResultContent"></div>
             </div>
 
             <div id="llmResultSection" style="display: none;">
