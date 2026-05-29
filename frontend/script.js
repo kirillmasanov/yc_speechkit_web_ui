@@ -780,22 +780,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Toggle Speaker Analysis visibility
-    document.getElementById('toggleSpeakerBtn').addEventListener('click', function() {
-        const section = document.getElementById('speakerAnalysisSection');
-        const arrow = this.querySelector('.collapse-arrow');
-        if (section.style.display === 'none') {
-            section.style.display = 'block';
-            arrow.classList.add('open');
-        } else {
-            section.style.display = 'none';
-            arrow.classList.remove('open');
-        }
-    });
-    
-    // Toggle Conversation Analysis visibility
-    document.getElementById('toggleConversationBtn').addEventListener('click', function() {
-        const section = document.getElementById('conversationAnalysisSection');
+    // Toggle Statistics visibility
+    document.getElementById('toggleStatsBtn').addEventListener('click', function() {
+        const section = document.getElementById('statsSection');
         const arrow = this.querySelector('.collapse-arrow');
         if (section.style.display === 'none') {
             section.style.display = 'block';
@@ -885,10 +872,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (rawToggleTrack) rawToggleTrack.classList.remove('active');
         document.getElementById('speakerAnalysisSection').innerHTML = '';
         document.getElementById('conversationAnalysisSection').innerHTML = '';
-        document.getElementById('speakerAnalysisSection').style.display = 'none';
-        document.getElementById('conversationAnalysisSection').style.display = 'none';
-        document.getElementById('toggleSpeakerBtn').querySelector('.collapse-arrow').classList.remove('open');
-        document.getElementById('toggleConversationBtn').querySelector('.collapse-arrow').classList.remove('open');
+        document.getElementById('statsSection').style.display = 'none';
+        document.getElementById('toggleStatsBtn').querySelector('.collapse-arrow').classList.remove('open');
         document.getElementById('summarySection').innerHTML = '';
         document.getElementById('llmResultSection').style.display = 'none';
         document.getElementById('classifierResultSection').style.display = 'none';
@@ -1094,170 +1079,124 @@ function checkOperationStatus(operationId) {
                         document.getElementById('rawTextMeta').textContent = fmtMin(firstMs) + ' - ' + fmtMin(lastMs);
                     })();
 
+                    // Helpers
+                    function fmtSec(ms) {
+                        if (ms == null) return '—';
+                        var s = parseInt(ms) / 1000;
+                        return s >= 60
+                            ? Math.floor(s / 60) + ' мин ' + (s % 60).toFixed(0) + ' с'
+                            : s.toFixed(1) + ' с';
+                    }
+                    function fmtPct(r) {
+                        return r == null ? '—' : (parseFloat(r) * 100).toFixed(0) + '%';
+                    }
+                    function fmtMean(stat) {
+                        return stat && stat.mean != null ? parseFloat(stat.mean).toFixed(1) : '—';
+                    }
+                    function statItem(label, value, sub) {
+                        var el = document.createElement('div');
+                        el.className = 'stat-item';
+                        el.innerHTML = '<div class="stat-label">' + label + '</div>'
+                            + '<div class="stat-value">' + value + '</div>'
+                            + (sub ? '<div class="stat-sub">' + sub + '</div>' : '');
+                        return el;
+                    }
+
                     // Render Speaker Analysis
                     const speakerAnalysis = response.result.speakerAnalysis;
                     const speakerSection = document.getElementById('speakerAnalysisSection');
                     speakerSection.innerHTML = '';
-                    
+
                     if (speakerAnalysis && speakerAnalysis.length > 0) {
                         speakerAnalysis.forEach(function(sa) {
                             const card = document.createElement('div');
                             card.className = 'analysis-card';
-                            
-                            const title = document.createElement('h6');
-                            title.textContent = 'Speaker: ' + (sa.speaker_tag || 'Unknown');
+
+                            const title = document.createElement('div');
+                            title.className = 'stats-speaker-title';
+                            title.textContent = 'Участник ' + (sa.speaker_tag || '?');
                             card.appendChild(title);
-                            
-                            const table = document.createElement('table');
-                            table.className = 'analysis-table';
-                            
-                            function addRow(label, value) {
-                                const tr = document.createElement('tr');
-                                const th = document.createElement('th');
-                                th.textContent = label;
-                                const td = document.createElement('td');
-                                td.textContent = value;
-                                tr.appendChild(th);
-                                tr.appendChild(td);
-                                table.appendChild(tr);
-                            }
-                            
-                            function formatMs(ms) {
-                                if (ms === undefined || ms === null) return '—';
-                                var seconds = (parseInt(ms) / 1000).toFixed(1);
-                                return seconds + 's';
-                            }
-                            
-                            function formatRatio(ratio) {
-                                if (ratio === undefined || ratio === null) return '—';
-                                return (parseFloat(ratio) * 100).toFixed(1) + '%';
-                            }
-                            
-                            function formatStat(stat) {
-                                if (!stat) return '—';
-                                return 'mean: ' + (parseFloat(stat.mean || 0)).toFixed(2) +
-                                       ', min: ' + (parseFloat(stat.min || 0)).toFixed(2) +
-                                       ', max: ' + (parseFloat(stat.max || 0)).toFixed(2);
-                            }
-                            
-                            addRow('Total Speech', formatMs(sa.total_speech_ms));
-                            addRow('Speech Ratio', formatRatio(sa.speech_ratio));
-                            addRow('Total Silence', formatMs(sa.total_silence_ms));
-                            addRow('Silence Ratio', formatRatio(sa.silence_ratio));
-                            addRow('Words Count', sa.words_count || '0');
-                            addRow('Letters Count', sa.letters_count || '0');
-                            addRow('Utterance Count', sa.utterance_count || '0');
-                            addRow('Words/sec', formatStat(sa.words_per_second));
-                            addRow('Letters/sec', formatStat(sa.letters_per_second));
-                            addRow('Words/utterance', formatStat(sa.words_per_utterance));
-                            addRow('Letters/utterance', formatStat(sa.letters_per_utterance));
-                            addRow('Utterance Duration', formatStat(sa.utterance_duration_estimation));
-                            
+
+                            const grid = document.createElement('div');
+                            grid.className = 'stats-grid';
+
+                            grid.appendChild(statItem('Время речи', fmtSec(sa.total_speech_ms), fmtPct(sa.speech_ratio)));
+                            grid.appendChild(statItem('Тишина', fmtSec(sa.total_silence_ms), fmtPct(sa.silence_ratio)));
+                            grid.appendChild(statItem('Слов', sa.words_count || '0'));
+                            grid.appendChild(statItem('Фраз', sa.utterance_count || '0'));
+                            if (sa.words_per_second) grid.appendChild(statItem('Слов/сек', fmtMean(sa.words_per_second)));
+                            if (sa.utterance_duration_estimation) grid.appendChild(statItem('Длина фразы', fmtSec(sa.utterance_duration_estimation.mean)));
                             if (sa.speech_boundaries) {
-                                addRow('Speech Start', formatMs(sa.speech_boundaries.start_time_ms));
-                                addRow('Speech End', formatMs(sa.speech_boundaries.end_time_ms));
+                                var start = fmtSec(sa.speech_boundaries.start_time_ms);
+                                var end   = fmtSec(sa.speech_boundaries.end_time_ms);
+                                grid.appendChild(statItem('Начало речи', start));
+                                grid.appendChild(statItem('Конец речи', end));
                             }
-                            
-                            card.appendChild(table);
+
+                            card.appendChild(grid);
                             speakerSection.appendChild(card);
                         });
                     } else {
-                        speakerSection.innerHTML = '<div class="analysis-card">No speaker analysis data available.</div>';
+                        speakerSection.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:4px 0;">Нет данных</div>';
                     }
-                    
+
                     // Render Conversation Analysis
                     const convAnalysis = response.result.conversationAnalysis;
                     const convSection = document.getElementById('conversationAnalysisSection');
                     convSection.innerHTML = '';
-                    
+
                     if (convAnalysis) {
                         const card = document.createElement('div');
                         card.className = 'analysis-card';
-                        
-                        const table = document.createElement('table');
-                        table.className = 'analysis-table';
-                        
-                        function addConvRow(label, value) {
-                            const tr = document.createElement('tr');
-                            const th = document.createElement('th');
-                            th.textContent = label;
-                            const td = document.createElement('td');
-                            td.textContent = value;
-                            tr.appendChild(th);
-                            tr.appendChild(td);
-                            table.appendChild(tr);
-                        }
-                        
-                        function fmtMs(ms) {
-                            if (ms === undefined || ms === null) return '—';
-                            return (parseInt(ms) / 1000).toFixed(1) + 's';
-                        }
-                        
-                        function fmtRatio(ratio) {
-                            if (ratio === undefined || ratio === null) return '—';
-                            return (parseFloat(ratio) * 100).toFixed(1) + '%';
-                        }
-                        
-                        function fmtStat(stat) {
-                            if (!stat) return '—';
-                            return 'mean: ' + (parseFloat(stat.mean || 0)).toFixed(2) +
-                                   ', min: ' + (parseFloat(stat.min || 0)).toFixed(2) +
-                                   ', max: ' + (parseFloat(stat.max || 0)).toFixed(2);
-                        }
-                        
+
+                        const grid = document.createElement('div');
+                        grid.className = 'stats-grid';
+
                         if (convAnalysis.conversation_boundaries) {
-                            addConvRow('Conversation Start', fmtMs(convAnalysis.conversation_boundaries.start_time_ms));
-                            addConvRow('Conversation End', fmtMs(convAnalysis.conversation_boundaries.end_time_ms));
+                            grid.appendChild(statItem('Длительность',
+                                fmtSec((convAnalysis.conversation_boundaries.end_time_ms || 0) - (convAnalysis.conversation_boundaries.start_time_ms || 0))));
                         }
-                        
-                        addConvRow('Total Speech Duration', fmtMs(convAnalysis.total_speech_duration_ms));
-                        addConvRow('Total Speech Ratio', fmtRatio(convAnalysis.total_speech_ratio));
-                        addConvRow('Simultaneous Silence', fmtMs(convAnalysis.total_simultaneous_silence_duration_ms));
-                        addConvRow('Simultaneous Silence Ratio', fmtRatio(convAnalysis.total_simultaneous_silence_ratio));
-                        addConvRow('Silence Duration Stats', fmtStat(convAnalysis.simultaneous_silence_duration_estimation));
-                        addConvRow('Simultaneous Speech', fmtMs(convAnalysis.total_simultaneous_speech_duration_ms));
-                        addConvRow('Simultaneous Speech Ratio', fmtRatio(convAnalysis.total_simultaneous_speech_ratio));
-                        addConvRow('Speech Duration Stats', fmtStat(convAnalysis.simultaneous_speech_duration_estimation));
-                        
-                        card.appendChild(table);
-                        
-                        // Render interrupts per speaker
+                        grid.appendChild(statItem('Речь', fmtSec(convAnalysis.total_speech_duration_ms), fmtPct(convAnalysis.total_speech_ratio)));
+                        grid.appendChild(statItem('Одновременная речь', fmtSec(convAnalysis.total_simultaneous_speech_duration_ms), fmtPct(convAnalysis.total_simultaneous_speech_ratio)));
+                        grid.appendChild(statItem('Тишина', fmtSec(convAnalysis.total_simultaneous_silence_duration_ms), fmtPct(convAnalysis.total_simultaneous_silence_ratio)));
+
+                        card.appendChild(grid);
+
                         if (convAnalysis.speaker_interrupts && convAnalysis.speaker_interrupts.length > 0) {
+                            const intWrap = document.createElement('div');
+                            intWrap.className = 'stats-interrupts';
                             convAnalysis.speaker_interrupts.forEach(function(si) {
-                                const intCard = document.createElement('div');
-                                intCard.style.marginTop = '10px';
-                                
-                                const intTitle = document.createElement('h6');
-                                intTitle.textContent = 'Interrupts by ' + (si.speaker_tag || 'Unknown');
-                                intTitle.style.fontSize = '0.85rem';
-                                intTitle.style.marginBottom = '4px';
-                                intCard.appendChild(intTitle);
-                                
-                                const intInfo = document.createElement('div');
-                                intInfo.className = 'interrupts-list';
-                                intInfo.innerHTML = 'Count: <strong>' + (si.interrupts_count || 0) +
-                                    '</strong> &nbsp;|&nbsp; Total duration: <strong>' + fmtMs(si.interrupts_duration_ms) + '</strong>';
-                                intCard.appendChild(intInfo);
-                                
+                                var line = document.createElement('div');
+                                line.style.marginTop = '8px';
+                                line.innerHTML = '<span style="color:var(--text);font-weight:600;">Перебивания — участник ' + (si.speaker_tag || '?') + ':</span>'
+                                    + ' ' + (si.interrupts_count || 0) + ' раз, '
+                                    + fmtSec(si.interrupts_duration_ms);
                                 if (si.interrupts && si.interrupts.length > 0) {
-                                    const intList = document.createElement('div');
-                                    intList.className = 'interrupts-list';
+                                    var chips = document.createElement('div');
+                                    chips.className = 'interrupts-list';
+                                    chips.style.marginTop = '4px';
                                     si.interrupts.forEach(function(seg) {
-                                        const span = document.createElement('span');
+                                        var span = document.createElement('span');
                                         span.className = 'interrupt-item';
-                                        span.textContent = fmtMs(seg.start_time_ms) + ' → ' + fmtMs(seg.end_time_ms);
-                                        intList.appendChild(span);
+                                        span.textContent = fmtSec(seg.start_time_ms) + ' → ' + fmtSec(seg.end_time_ms);
+                                        chips.appendChild(span);
                                     });
-                                    intCard.appendChild(intList);
+                                    line.appendChild(chips);
                                 }
-                                
-                                card.appendChild(intCard);
+                                intWrap.appendChild(line);
                             });
+                            card.appendChild(intWrap);
                         }
-                        
+
                         convSection.appendChild(card);
                     } else {
-                        convSection.innerHTML = '<div class="analysis-card">No conversation analysis data available.</div>';
+                        convSection.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:4px 0;">Нет данных</div>';
+                    }
+
+                    // Show stats section if any data
+                    if ((speakerAnalysis && speakerAnalysis.length > 0) || convAnalysis) {
+                        document.getElementById('statsSection').style.display = 'block';
+                        document.getElementById('toggleStatsBtn').querySelector('.collapse-arrow').classList.add('open');
                     }
 
                     // Render Summarization

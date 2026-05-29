@@ -341,7 +341,7 @@
             </div>
 
             <div id="classifierResultSection" style="display: none;">
-                <div class="field-annotation-lg" style="margin-top: 20px;">Классификаторы<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Классификаторы — это инструмент для анализа аудио, который определяет, есть ли в распознанном тексте фраза определенной категории, например приветствие, негатив или мат. Работает только для русского языка.</span></a></div>
+                <div class="field-annotation-lg" style="margin-top: 20px;">Результат работы классификаторов</div>
                 <div id="classifierResultContent"></div>
             </div>
 
@@ -350,21 +350,17 @@
                 <div id="summarySection" class="analysis-section" style="display: block;"></div>
             </div>
 
-            <div class="field-annotation collapsible" style="margin-top: 20px;" id="toggleSpeakerBtn">
-                <span class="collapse-arrow"></span> Статистика участников<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#statistics" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет анализировать диалоги и речь отдельных участников и подсчитывать статистики для каждого участника и для диалога в целом. Результаты анализа содержат дискретные характеристики аудио и описательные статистики распределений этих значений.
-
-Для каждого участника диалога можно определить: скорость и длительность речи; длительность пауз; количество и размеры фраз.</span></a>
+            <div class="field-annotation collapsible" id="toggleStatsBtn">
+                <span class="collapse-arrow"></span> Статистика
             </div>
-            <div id="speakerAnalysisSection" class="analysis-section"></div>
-            
-            <div class="field-annotation collapsible" style="margin-top: 20px;" id="toggleConversationBtn">
-                <span class="collapse-arrow"></span> Статистика диалога<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#statistics" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет анализировать диалоги и речь отдельных участников и подсчитывать статистики для каждого участника и для диалога в целом. Результаты анализа содержат дискретные характеристики аудио и описательные статистики распределений этих значений.
-
-Для диалога в целом доступны: длительность одновременной речи и пауз; количество и временные метки перебиваний.</span></a>
+            <div id="statsSection" style="display: none;">
+                <div class="field-annotation" style="margin-top: 16px; margin-bottom: 4px;">Статистика участников<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#statistics" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет анализировать диалоги и речь отдельных участников и подсчитывать статистики для каждого участника и для диалога в целом. Для каждого участника диалога можно определить: скорость и длительность речи; длительность пауз; количество и размеры фраз.</span></a></div>
+                <div id="speakerAnalysisSection" class="analysis-section"></div>
+                <div class="field-annotation" style="margin-top: 16px; margin-bottom: 4px;">Статистика диалога<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis#statistics" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">SpeechKit позволяет анализировать диалоги и речь отдельных участников и подсчитывать статистики для каждого участника и для диалога в целом. Для диалога в целом доступны: длительность одновременной речи и пауз; количество и временные метки перебиваний.</span></a></div>
+                <div id="conversationAnalysisSection" class="analysis-section"></div>
             </div>
-            <div id="conversationAnalysisSection" class="analysis-section"></div>
 
-            <div class="field-annotation collapsible" style="margin-top: 20px;" id="toggleJsonBtn">
+            <div class="field-annotation collapsible" id="toggleJsonBtn">
                 <span class="collapse-arrow"></span> Ответ в формате JSON
             </div>
             <div id="rawJsonSection" style="display: none;">
