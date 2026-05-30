@@ -251,9 +251,19 @@ label { display: block; margin-bottom: 6px; }
 .field-annotation.collapsible { cursor: pointer; user-select: none; }
 .field-annotation.collapsible:hover { color: var(--accent); }
 
-.collapse-arrow { display: inline-block; font-size: 10px; margin-right: 4px; }
-.collapse-arrow::before { content: '▲'; }
-.collapse-arrow.open::before { content: '▼'; }
+.collapse-arrow {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-top: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+.collapse-arrow.open {
+  transform: rotate(135deg);
+}
 
 #toggleStatsBtn, #toggleJsonBtn {
   font-size: 14px;
@@ -267,7 +277,7 @@ label { display: block; margin-bottom: 6px; }
   gap: 6px;
 }
 #toggleStatsBtn:hover, #toggleJsonBtn:hover { color: var(--accent); }
-#toggleStatsBtn .collapse-arrow, #toggleJsonBtn .collapse-arrow { font-size: 9px; margin-right: 0; }
+#toggleStatsBtn .collapse-arrow, #toggleJsonBtn .collapse-arrow { width: 8px; height: 8px; }
 
 /* ── Help link ─────────────────────────────────────────── */
 .help-link {
@@ -790,6 +800,8 @@ pre {
   background-color: var(--surface);
   outline: none;
 }
+
+#llmModelDropdown, #streamLlmModelDropdown { min-width: 300px; }
 
 .dropdown-content {
   display: none;

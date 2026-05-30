@@ -1860,9 +1860,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('speakerGroupingToggle').addEventListener('change', sttCheckDirty);
 
     // Classifier toggle
-    document.getElementById('classifiersToggleTrack').addEventListener('click', function() {
-        if (this.classList.contains('disabled')) return;
-        var active = this.classList.toggle('active');
+    document.getElementById('classifiersToggleTrack').closest('.raw-text-toggle-label').addEventListener('click', function() {
+        var track = document.getElementById('classifiersToggleTrack');
+        if (track.classList.contains('disabled')) return;
+        var active = track.classList.toggle('active');
         document.getElementById('classifiersOptions').style.display = active ? '' : 'none';
         if (!active) {
             document.getElementById('classifierMultiselectDropdown').style.display = 'none';
@@ -1938,8 +1939,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // LLM toggle (STT)
     var llmModelsLoaded = false;
-    document.getElementById('llmToggleTrack').addEventListener('click', function() {
-        var active = this.classList.toggle('active');
+    document.getElementById('llmToggleTrack').closest('.raw-text-toggle-label').addEventListener('click', function() {
+        var track = document.getElementById('llmToggleTrack');
+        var active = track.classList.toggle('active');
         document.getElementById('llmOptions').style.display = active ? '' : 'none';
         if (active && !llmModelsLoaded) {
             llmModelsLoaded = true;
@@ -1959,8 +1961,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // LLM toggle (stream)
     var streamLlmModelsLoaded = false;
-    document.getElementById('streamLlmToggleTrack').addEventListener('click', function() {
-        var active = this.classList.toggle('active');
+    document.getElementById('streamLlmToggleTrack').closest('.raw-text-toggle-label').addEventListener('click', function() {
+        var track = document.getElementById('streamLlmToggleTrack');
+        var active = track.classList.toggle('active');
         document.getElementById('streamLlmOptions').style.display = active ? '' : 'none';
         if (active && !streamLlmModelsLoaded) {
             streamLlmModelsLoaded = true;
@@ -2006,8 +2009,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Raw text toggle
-    document.getElementById('rawTextToggleTrack').addEventListener('click', function() {
-        var active = this.classList.toggle('active');
+    document.getElementById('rawTextToggleLabel').addEventListener('click', function() {
+        var track = document.getElementById('rawTextToggleTrack');
+        var active = track.classList.toggle('active');
         document.getElementById('dialogueSection').style.display  = active ? 'none' : '';
         document.getElementById('rawTextSection').style.display   = active ? ''     : 'none';
     });
