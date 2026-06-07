@@ -330,23 +330,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Reset sliders button
-    document.getElementById('resetSlidersBtn').addEventListener('click', function() {
+    // Reset all synthesis parameters (single "Очистить" button, like STT).
+    // Text is preserved — only parameters are reset.
+    document.getElementById('resetTtsParamsBtn').addEventListener('click', function() {
+        // Language → Russian (also repopulates voice + role with defaults)
+        currentTtsLang = 'ru-RU';
+        currentTtsLangLabel = 'Русский';
+        document.getElementById('ttsLangDropdown').textContent = 'Русский';
+        switchTtsLanguage('ru-RU');
+
+        // Format → WAV
+        currentFormat = 'WAV';
+        document.getElementById('formatDropdown').textContent = 'WAV';
+
+        // Normalization type → LUFS
+        currentNormType = 'LUFS';
+        document.getElementById('normDropdown').textContent = 'LUFS';
+
         // Speed
         currentSpeed = 1.0;
         document.getElementById('speedSlider').value = '1.0';
         document.getElementById('speedValue').textContent = '1.0';
-        
+
         // Pitch
         currentPitchShift = 0;
         document.getElementById('pitchSlider').value = '0';
         document.getElementById('pitchValue').textContent = '0';
-        
-        // Normalization type
-        currentNormType = 'LUFS';
-        document.getElementById('normDropdown').textContent = 'LUFS';
-        
-        // Volume (reset range then value)
+
+        // Volume (reset range for LUFS, then value)
         var slider = document.getElementById('volumeSlider');
         slider.min = '-145';
         slider.max = '-0.1';
@@ -354,6 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
         slider.value = '-19';
         currentVolume = -19;
         document.getElementById('volumeValue').textContent = '-19';
+
         updateTtsUI();
     });
     
@@ -735,6 +747,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => {
             if (response.ok) {
+                renderTtsApiRequest(response.headers.get('X-Api-Request'));
                 response.blob().then(function(blob) {
                     exitLoading();
                     currentAudioUrl = URL.createObjectURL(blob);
@@ -785,6 +798,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // Toggle Raw JSON visibility
     document.getElementById('toggleJsonBtn').addEventListener('click', function() {
         const section = document.getElementById('rawJsonSection');
+        const arrow = this.querySelector('.collapse-arrow');
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            arrow.classList.add('open');
+        } else {
+            section.style.display = 'none';
+            arrow.classList.remove('open');
+        }
+    });
+
+    // Copy buttons for the API request preview blocks
+    attachCopyButton('copyApiReqBtn', 'apiRequestContent');
+    attachCopyButton('copyTtsApiReqBtn', 'ttsApiRequestContent');
+    attachCopyButton('copyStreamApiReqBtn', 'streamApiRequestContent');
+
+    // Toggle API request preview visibility (STT)
+    document.getElementById('toggleApiReqBtn').addEventListener('click', function() {
+        const section = document.getElementById('apiRequestSection');
+        const arrow = this.querySelector('.collapse-arrow');
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            arrow.classList.add('open');
+        } else {
+            section.style.display = 'none';
+            arrow.classList.remove('open');
+        }
+    });
+
+    // Toggle API request preview visibility (TTS)
+    document.getElementById('toggleTtsApiReqBtn').addEventListener('click', function() {
+        const section = document.getElementById('ttsApiRequestSection');
         const arrow = this.querySelector('.collapse-arrow');
         if (section.style.display === 'none') {
             section.style.display = 'block';
@@ -923,6 +967,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(function(blob) { return submitSttRequest(blob, exampleFileName); })
                 .then(function(response) {
                     console.log('STT processing initiated (example)');
+                    sttLastRequestPreview = response.requestPreview || null;
                     checkOperationStatus(response.operation);
                 })
                 .catch(function(error) {
@@ -934,6 +979,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitSttRequest(file, file.name)
                 .then(function(response) {
                     console.log('STT processing initiated');
+                    sttLastRequestPreview = response.requestPreview || null;
                     checkOperationStatus(response.operation);
                 })
                 .catch(function(error) {
@@ -943,6 +989,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Preview of the gRPC request sent for the current STT operation
+var sttLastRequestPreview = null;
+
+// Render an object as syntax-highlighted JSON into the given element (replaces content)
+function renderHighlightedJson(el, obj) {
+    var text = JSON.stringify(obj, null, 2)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    el.innerHTML = '<pre>' + text.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        function (match) {
+            var cls = 'json-number';
+            if (/^"/.test(match)) {
+                cls = /:$/.test(match) ? 'json-key' : 'json-string';
+            } else if (/true|false/.test(match)) {
+                cls = 'json-boolean';
+            } else if (/null/.test(match)) {
+                cls = 'json-null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        }
+    ) + '</pre>';
+}
+
+// Wire a copy-to-clipboard button that copies the text of a source element
+function attachCopyButton(btnId, sourceId) {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        var src = document.getElementById(sourceId);
+        if (!src) return;
+        navigator.clipboard.writeText(src.textContent).then(function() {
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            btn.classList.add('copied');
+            setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('copied'); }, 1500);
+        });
+    });
+}
+
+// Decode a UTF-8 base64 string (used for the TTS X-Api-Request header)
+function b64DecodeUtf8(b64) {
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+}
+
+// Render the TTS API request preview from the X-Api-Request response header
+function renderTtsApiRequest(headerVal) {
+    var btn = document.getElementById('toggleTtsApiReqBtn');
+    var content = document.getElementById('ttsApiRequestContent');
+    if (!headerVal) { btn.style.display = 'none'; return; }
+    try {
+        renderHighlightedJson(content, JSON.parse(b64DecodeUtf8(headerVal)));
+        btn.style.display = '';
+    } catch (e) {
+        console.error('Failed to decode X-Api-Request:', e);
+        btn.style.display = 'none';
+    }
+}
 
 // Check STT operation status
 function checkOperationStatus(operationId) {
@@ -956,6 +1063,17 @@ function checkOperationStatus(operationId) {
                     sttSetLoading(false);
                     sttMarkDone();
                     document.getElementById('sttResults').style.display = '';
+
+                    // API request preview (what was actually sent to SpeechKit)
+                    var apiReqContent = document.getElementById('apiRequestContent');
+                    var apiReqBtn = document.getElementById('toggleApiReqBtn');
+                    if (sttLastRequestPreview) {
+                        renderHighlightedJson(apiReqContent, sttLastRequestPreview);
+                        apiReqBtn.style.display = '';
+                    } else {
+                        apiReqContent.innerHTML = '';
+                        apiReqBtn.style.display = 'none';
+                    }
                     
                     // Display beautified JSON
                     var resultSttDiv = document.getElementById("resultStt");
@@ -1373,6 +1491,27 @@ let mediaStream;
 let streamTimerInterval = null;
 let streamStartTime = 0;
 
+// ── Stream event log state ─────────────────────────────────
+// Metadata for every event type the streaming gRPC API can emit.
+// `noisy: true` types are hidden by default (service chatter, no text).
+const STREAM_EVENT_TYPES = [
+    { type: 'session',           desc: 'Опции распознавания отправлены — начало сессии', noisy: false },
+    { type: 'partial',           desc: 'Промежуточная гипотеза (текст ещё уточняется)',  noisy: false },
+    { type: 'final',             desc: 'Финальный текст фразы (до нормализации)',         noisy: false },
+    { type: 'final_refinement',  desc: 'Текст фразы после нормализации',                  noisy: false },
+    { type: 'eou_update',        desc: 'Конец фразы (определён по паузе)',                noisy: false },
+    { type: 'classifier_update', desc: 'Сработал классификатор',                          noisy: false },
+    { type: 'summarization',     desc: 'Получен результат LLM-обработки',                 noisy: false },
+    { type: 'status_code',       desc: 'Служебное событие распознавателя (без текста)',   noisy: true  },
+    { type: 'error',             desc: 'Ошибка',                                          noisy: false },
+];
+// Types currently shown in the log (mutated by the filter chips).
+let streamLogVisibleTypes = new Set(STREAM_EVENT_TYPES.filter(e => !e.noisy).map(e => e.type));
+let streamLogEvents = [];        // every raw event, for re-rendering on filter change
+let streamLogLastRow = null;     // last rendered row (for collapsing consecutive partials)
+let streamLogLastType = null;
+let streamLogLastCount = 1;
+
 // SpeechKit streaming session hard limit: 5 minutes of audio.
 const STREAM_MAX_SECONDS = 5 * 60;
 
@@ -1446,6 +1585,28 @@ function setupStreamRecognition() {
         document.getElementById('partialText').textContent = '';
         document.getElementById('finalText').innerHTML = '';
         document.getElementById('streamSummarySection').innerHTML = '';
+        resetStreamLog();
+        document.getElementById('toggleStreamLogBtn').style.display = 'none';
+        document.getElementById('streamLogSection').style.display = 'none';
+        document.getElementById('toggleStreamLogBtn').querySelector('.collapse-arrow').classList.remove('open');
+    });
+
+    // Collapsible: stream event log
+    document.getElementById('toggleStreamLogBtn').addEventListener('click', function() {
+        var section = document.getElementById('streamLogSection');
+        var arrow = this.querySelector('.collapse-arrow');
+        var hidden = section.style.display === 'none';
+        section.style.display = hidden ? 'block' : 'none';
+        arrow.classList.toggle('open', hidden);
+    });
+
+    // Collapsible: stream API request preview
+    document.getElementById('toggleStreamApiReqBtn').addEventListener('click', function() {
+        var section = document.getElementById('streamApiRequestSection');
+        var arrow = this.querySelector('.collapse-arrow');
+        var hidden = section.style.display === 'none';
+        section.style.display = hidden ? 'block' : 'none';
+        arrow.classList.toggle('open', hidden);
     });
 }
 
@@ -1620,6 +1781,150 @@ function stopStreamTimer() {
     if (indicator) indicator.style.display = 'none';
 }
 
+// Milestone events get visual emphasis; muted events (service chatter / empty
+// hypotheses) are dimmed so the meaningful steps stand out.
+const STREAM_LOG_MILESTONES = new Set(['final', 'final_refinement', 'eou_update', 'summarization']);
+
+function streamLogIsMuted(ev) {
+    return ev.type === 'status_code' || (ev.type === 'partial' && ev.empty);
+}
+
+// Reset the log to an empty state (new session or cleared results).
+function resetStreamLog() {
+    var log = document.getElementById('streamEventLog');
+    if (log) log.innerHTML = '';
+    streamLogEvents = [];
+    streamLogLastRow = null;
+    streamLogLastType = null;
+    streamLogLastCount = 1;
+}
+
+// Build (once) the filter chips that double as a colour legend.
+function buildStreamLogFilters() {
+    var box = document.getElementById('streamLogFilters');
+    if (!box || box.childElementCount) return;
+    STREAM_EVENT_TYPES.forEach(function (meta) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'stream-log-filter ev-' + meta.type;
+        chip.dataset.ev = meta.type;
+        chip.title = meta.desc;
+        chip.textContent = meta.type;
+        if (!streamLogVisibleTypes.has(meta.type)) chip.classList.add('off');
+        chip.addEventListener('click', function () {
+            if (streamLogVisibleTypes.has(meta.type)) {
+                streamLogVisibleTypes.delete(meta.type);
+                chip.classList.add('off');
+            } else {
+                streamLogVisibleTypes.add(meta.type);
+                chip.classList.remove('off');
+            }
+            rebuildStreamLog();
+        });
+        box.appendChild(chip);
+    });
+}
+
+// Re-render the whole log from stored events (used when a filter toggles).
+function rebuildStreamLog() {
+    var log = document.getElementById('streamEventLog');
+    if (!log) return;
+    log.innerHTML = '';
+    streamLogLastRow = null;
+    streamLogLastType = null;
+    streamLogLastCount = 1;
+    streamLogEvents.forEach(renderStreamLogRow);
+}
+
+// Render a single stored event, honouring filters and collapsing consecutive
+// partials into one live-updating row with a ×N counter.
+function renderStreamLogRow(ev) {
+    if (!streamLogVisibleTypes.has(ev.type)) return;
+    var log = document.getElementById('streamEventLog');
+    if (!log) return;
+
+    var text = ev.detail || '';
+    if (text.length > 100) text = text.slice(0, 100) + '…';
+
+    // Collapse a run of partials into the previous partial row.
+    if (ev.type === 'partial' && streamLogLastType === 'partial' && streamLogLastRow) {
+        streamLogLastCount++;
+        streamLogLastRow.querySelector('.stream-event-time').textContent = ev.elapsed + 's';
+        streamLogLastRow.querySelector('.stream-event-detail').textContent = text;
+        var cnt = streamLogLastRow.querySelector('.stream-event-count');
+        if (!cnt) {
+            cnt = document.createElement('span');
+            cnt.className = 'stream-event-count';
+            streamLogLastRow.querySelector('.stream-event-badge').after(cnt);
+        }
+        cnt.textContent = '×' + streamLogLastCount;
+        streamLogLastRow.classList.toggle('is-muted', streamLogIsMuted(ev));
+        log.scrollTop = log.scrollHeight;
+        return;
+    }
+
+    var row = document.createElement('div');
+    row.className = 'stream-event-row';
+    if (STREAM_LOG_MILESTONES.has(ev.type)) row.classList.add('is-milestone');
+    if (streamLogIsMuted(ev)) row.classList.add('is-muted');
+
+    var t = document.createElement('span');
+    t.className = 'stream-event-time';
+    t.textContent = ev.elapsed + 's';
+
+    var badge = document.createElement('span');
+    badge.className = 'stream-event-badge ev-' + ev.type;
+    badge.textContent = ev.type;
+
+    var d = document.createElement('span');
+    d.className = 'stream-event-detail';
+    d.textContent = text;
+
+    row.appendChild(t);
+    row.appendChild(badge);
+    row.appendChild(d);
+    log.appendChild(row);
+    log.scrollTop = log.scrollHeight;
+
+    streamLogLastRow = row;
+    streamLogLastType = ev.type;
+    streamLogLastCount = 1;
+}
+
+// Map an incoming WS message to a stored, human-readable log entry.
+function logStreamEvent(result) {
+    var type = result.type;
+    var detail = '';
+    var empty = false;
+    if (type === 'session') {
+        detail = 'StreamingOptions отправлены';
+    } else if (type === 'partial' || type === 'final' || type === 'final_refinement') {
+        var has = result.alternatives && result.alternatives[0];
+        detail = has ? '«' + result.alternatives[0] + '»' : '(пусто)';
+        empty = !has;
+    } else if (type === 'eou_update') {
+        detail = 'конец фразы';
+    } else if (type === 'classifier_update' && result.classifier_update) {
+        var cu = result.classifier_update;
+        var lbl = (cu.labels && cu.labels[0]) ? cu.labels[0].label + ' ' + Math.round((cu.labels[0].confidence || 0) * 100) + '%' : '';
+        detail = (cu.classifier || '') + (lbl ? ': ' + lbl : '');
+    } else if (type === 'summarization') {
+        detail = 'результат LLM получен';
+    } else if (type === 'status_code') {
+        detail = String(result.status_code || '');
+    } else if (type === 'error') {
+        detail = result.message || '';
+    }
+    var ev = {
+        type: type,
+        detail: detail,
+        empty: empty,
+        elapsed: streamStartTime ? ((Date.now() - streamStartTime) / 1000).toFixed(2) : '0.00',
+    };
+    streamLogEvents.push(ev);
+    renderStreamLogRow(ev);
+}
+
 async function startStreaming() {
     try {
         // Request microphone access
@@ -1673,7 +1978,12 @@ async function startStreaming() {
         
         websocket.onopen = function() {
             console.log('WebSocket connected');
-            
+
+            // Reset and reveal the event log for this session
+            resetStreamLog();
+            buildStreamLogFilters();
+            document.getElementById('toggleStreamLogBtn').style.display = '';
+
             // Add session separator if there are previous results
             const finalDiv = document.getElementById('finalText');
             if (finalDiv.children.length > 0) {
@@ -1719,14 +2029,24 @@ async function startStreaming() {
         websocket.onmessage = function(event) {
             try {
                 const result = JSON.parse(event.data);
-                
+
+                // Record every event in the live log
+                logStreamEvent(result);
+
+                // Session preview — the actual gRPC StreamingOptions request
+                if (result.type === 'session' && result.request) {
+                    renderHighlightedJson(document.getElementById('streamApiRequestContent'), result.request);
+                    document.getElementById('toggleStreamApiReqBtn').style.display = '';
+                    return;
+                }
+
                 if (result.type === 'error') {
                     console.error('Recognition error:', result.message);
                     document.getElementById('partialText').textContent = 'Ошибка: ' + result.message;
                     document.getElementById('partialText').style.color = '#e74c3c';
                     return;
                 }
-                
+
                 if (result.type === 'partial' && result.alternatives && result.alternatives.length > 0) {
                     document.getElementById('partialText').textContent = result.alternatives[0];
                     document.getElementById('partialText').style.color = '';

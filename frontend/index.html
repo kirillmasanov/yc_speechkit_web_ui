@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SpeechKit Web UI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -60,7 +63,10 @@
             <div id="charCount">0/5000</div>
             
             <div class="tts-markup">
-                <div class="field-annotation" style="margin-bottom: 10px; margin-top: 16px; display: flex; align-items: center; gap: 8px;">TTS-разметка текста<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">TTS-разметка дает возможность управлять синтезом речи при помощи специальных символов и SIL-тегов. Это позволяет сделать синтезированную речь более естественной.</span></a><a href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer" class="tts-markup-link" style="font-size: 11px; text-transform: none; letter-spacing: 0; font-weight: 400;">Документация</a></div>
+                <div class="stt-params-header" style="margin-top: 16px;">
+                    <span class="field-annotation-lg">TTS-разметка текста<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">TTS-разметка дает возможность управлять синтезом речи при помощи специальных символов и SIL-тегов. Это позволяет сделать синтезированную речь более естественной.</span></a></span>
+                </div>
+                <div class="stt-section tts-params-section">
 
                 <div class="tts-markup-row">
                     <span class="tts-markup-sub">Паузы<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Разметка пауз служит только подсказкой для синтеза и срабатывает только внутри текста. Даже указывая конкретную длительность пауз, вы не сможете сгенерировать файл с тишиной. Паузы в начале и в конце предложения игнорируются.</span></a>:</span>
@@ -86,10 +92,18 @@
                     <button id="insertPhoneme" class="markup-btn">[[]]</button>
                     <a href="https://yandex.cloud/ru/docs/speechkit/tts/markup/tts-supported-phonemes" target="_blank" rel="noopener noreferrer" class="tts-markup-link">Все фонемы</a>
                 </div>
-                <hr class="tts-markup-divider">
+                </div>
             </div>
             
-            <div style="margin-top: 15px; display: flex; gap: 20px; align-items: flex-start;">
+            <div class="stt-params-header" style="margin-top: 20px;">
+                <span class="field-annotation-lg">Параметры синтеза</span>
+                <button type="button" id="resetTtsParamsBtn" class="stt-reset-btn">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    Сброс
+                </button>
+            </div>
+            <div class="stt-section tts-params-section">
+            <div style="display: flex; gap: 20px; align-items: flex-start;">
                 <div>
                     <div class="field-annotation">Язык</div>
                     <div class="custom-dropdown" style="margin: 0;">
@@ -112,10 +126,8 @@
                     </div>
                 </div>
             </div>
-            
-            <hr class="section-divider">
 
-            <div style="margin-top: 15px;">
+            <div>
                 <div class="field-annotation">Формат файла и нормализация<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/#volume" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете выбрать формат аудиофайла из списка поддерживаемых: MP3, OGG, LPCM (WAV). Также можно выбрать тип нормализации громкости LUFS или пиковая нормализация MAX_PEAK. Параметры нормализации могут потребоваться, если синтез SpeechKit используется с другими источниками звука.</span></a></div>
                 <div class="custom-dropdown">
                     <button id="formatDropdown" title="Формат аудио">WAV</button>
@@ -128,9 +140,7 @@
                 </div>
             </div>
 
-            <hr class="section-divider">
-
-            <div style="margin-top: 15px;">
+            <div>
                 <div class="field-annotation">Характеристики синтезируемой речи<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts/#settings" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Вы можете ускорить или замедлить синтезируемую речь, изменить уровень нормализации (или громкости) и изменить тембр.</span></a></div>
                 <div class="slider-group">
                     <label for="speedSlider">Скорость речи: <span id="speedValue">1.0</span></label>
@@ -144,11 +154,9 @@
                     <label for="volumeSlider">Уровень нормализации (громкость): <span id="volumeValue">-19</span></label>
                     <input type="range" id="volumeSlider" min="-145" max="-0.1" step="0.1" value="-19">
                 </div>
-                <div style="margin-top: 8px;">
-                    <button id="resetSlidersBtn" class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;">Сбросить настройки</button>
-                </div>
             </div>
-            
+            </div>
+
             <div style="margin-top: 16px;" id="ttsButtonRow">
                 <div id="ttsSeekbar" class="tts-seekbar hidden">
                     <div class="tts-seekbar-row">
@@ -175,6 +183,16 @@
                     </button>
                 </div>
             </div>
+
+            <div class="field-annotation collapsible" id="toggleTtsApiReqBtn" style="display: none; margin-top: 20px;">
+                <span class="collapse-arrow"></span> Запрос к API (gRPC)<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/tts-v3/api-ref/" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Реальный gRPC-запрос UtteranceSynthesisRequest, отправленный в SpeechKit. Показывает, как параметры формы превращаются в поля запроса API.</span></a>
+            </div>
+            <div id="ttsApiRequestSection" style="display: none;">
+                <div class="result-container">
+                    <div id="ttsApiRequestContent" class="bg-light text-monospace text-break" style="max-height: 500px; overflow-y: auto;"></div>
+                    <button class="copy-btn" id="copyTtsApiReqBtn" title="Скопировать"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 14H19C20.1046 14 21 13.1046 21 12V5C21 3.89543 20.1046 3 19 3H12C10.8954 3 10 3.89543 10 5V6.5M5 10H12C13.1046 10 14 10.8954 14 12V19C14 20.1046 13.1046 21 12 21H5C3.89543 21 3 20.1046 3 19V12C3 10.8954 3.89543 10 5 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
+            </div>
         </div>
         
         <div class="tab-content" id="speechToText">
@@ -198,7 +216,7 @@
                     <span class="field-annotation-lg">Параметры распознавания</span>
                     <button type="button" id="resetSttParamsBtn" class="stt-reset-btn">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                        Очистить
+                        Сброс
                     </button>
                 </div>
                 <div class="stt-section">
@@ -385,8 +403,18 @@
                 <div id="conversationAnalysisSection" class="analysis-section"></div>
             </div>
 
+            <div class="field-annotation collapsible" id="toggleApiReqBtn">
+                <span class="collapse-arrow"></span> Запрос к API (gRPC)
+            </div>
+            <div id="apiRequestSection" style="display: none;">
+                <div class="result-container">
+                    <div id="apiRequestContent" class="bg-light text-monospace text-break" style="max-height: 500px; overflow-y: auto;"></div>
+                    <button class="copy-btn" id="copyApiReqBtn" title="Скопировать"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 14H19C20.1046 14 21 13.1046 21 12V5C21 3.89543 20.1046 3 19 3H12C10.8954 3 10 3.89543 10 5V6.5M5 10H12C13.1046 10 14 10.8954 14 12V19C14 20.1046 13.1046 21 12 21H5C3.89543 21 3 20.1046 3 19V12C3 10.8954 3.89543 10 5 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
+            </div>
+
             <div class="field-annotation collapsible" id="toggleJsonBtn">
-                <span class="collapse-arrow"></span> Ответ в формате JSON
+                <span class="collapse-arrow"></span> Ответ API (JSON)
             </div>
             <div id="rawJsonSection" style="display: none;">
                 <div class="result-container">
@@ -415,7 +443,7 @@
                 <span class="field-annotation-lg">Параметры потокового распознавания</span>
                 <button type="button" id="resetStreamParamsBtn" class="stt-reset-btn">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                    Очистить
+                    Сброс
                 </button>
             </div>
             <div class="stt-section">
@@ -545,6 +573,25 @@
             <div id="streamLlmResultWrapper" style="display: none;">
                 <div class="field-annotation-lg" style="margin-top: 20px;">Результат обработки LLM<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Результат суммаризации потокового распознавания. Данные поступают после завершения записи.</span></a></div>
                 <div id="streamSummarySection" class="analysis-section" style="display: block;"></div>
+            </div>
+
+            <div class="field-annotation collapsible" id="toggleStreamLogBtn" style="display: none; margin-top: 20px;">
+                <span class="collapse-arrow"></span> Лог событий стрима<a class="help-link" href="https://aistudio.yandex.ru/docs/ru/speechkit/stt/streaming.html" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Последовательность событий, которые SpeechKit присылает в реальном времени: промежуточные (partial) и финальные (final) результаты, нормализация (final_refinement), конец фразы (eou_update), классификаторы и суммаризация. Наглядно показывает механику потокового режима.</span></a>
+            </div>
+            <div id="streamLogSection" style="display: none;">
+                <div class="stream-log-hint">Кликните по бейджу, чтобы скрыть/показать тип события. Служебные события и пустые гипотезы приглушены, вехи фразы (final, eou) — выделены.</div>
+                <div id="streamLogFilters" class="stream-log-filters"></div>
+                <div id="streamEventLog" class="stream-event-log"></div>
+            </div>
+
+            <div class="field-annotation collapsible" id="toggleStreamApiReqBtn" style="display: none; margin-top: 20px;">
+                <span class="collapse-arrow"></span> Запрос к API (gRPC, StreamingOptions)<a class="help-link" href="https://yandex.cloud/ru-kz/docs/speechkit/stt-v3/api-ref/grpc/" target="_blank" rel="noopener noreferrer">?<span class="help-tooltip">Первое сообщение gRPC-сессии RecognizeStreaming — опции распознавания, собранные из параметров формы.</span></a>
+            </div>
+            <div id="streamApiRequestSection" style="display: none;">
+                <div class="result-container">
+                    <div id="streamApiRequestContent" class="bg-light text-monospace text-break" style="max-height: 400px; overflow-y: auto;"></div>
+                    <button class="copy-btn" id="copyStreamApiReqBtn" title="Скопировать"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 14H19C20.1046 14 21 13.1046 21 12V5C21 3.89543 20.1046 3 19 3H12C10.8954 3 10 3.89543 10 5V6.5M5 10H12C13.1046 10 14 10.8954 14 12V19C14 20.1046 13.1046 21 12 21H5C3.89543 21 3 20.1046 3 19V12C3 10.8954 3.89543 10 5 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
             </div>
         </div>
     </div>

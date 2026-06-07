@@ -7,7 +7,6 @@ CLAUDE.md
 .claude/
 images/
 README.md
-README_en.md
 LICENSE
 **/.venv
 **/__pycache__

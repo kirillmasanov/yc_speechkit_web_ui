@@ -57,6 +57,9 @@ async def upload_file(
     speakerLabeling: bool = Form(default=False),
     llmModel: str = Form(default=''),
     classifiers: str = Form(default=''),
+    normalization: bool = Form(default=True),
+    profanityFilter: bool = Form(default=False),
+    literaryText: bool = Form(default=False),
 ):
     audio_bytes = await file.read()
     filename = file.filename.lower()
@@ -70,14 +73,19 @@ async def upload_file(
     else:
         return JSONResponse({"error": "Unsupported file type"}, status_code=400)
 
-    operation_id = create_recognition_task(
-        audio_bytes, container_type, lang, rate, summaryInstruction, speakerLabeling, llmModel, classifiers
+    operation_id, request_preview = create_recognition_task(
+        audio_bytes, container_type, lang, rate, summaryInstruction, speakerLabeling, llmModel, classifiers,
+        normalization, profanityFilter, literaryText,
     )
 
     if not operation_id:
         return JSONResponse({"error": "Failed to create recognition task"}, status_code=500)
 
-    return JSONResponse({"message": "Operation created successfully", "operation": operation_id})
+    return JSONResponse({
+        "message": "Operation created successfully",
+        "operation": operation_id,
+        "requestPreview": request_preview,
+    })
 
 
 @router.get("/operation")
@@ -91,7 +99,7 @@ async def operation_status(operationId: str = Query(default=None)):
         logging.info("Operation in progress: {}".format(operationId))
         return JSONResponse({"message": "Operation in progress", "operation": operationId, "done": "false"})
 
-    results, speaker_analysis_list, conversation_analysis_data, summarization_data, classifier_data = get_recognition_results(operationId)
+    results, speaker_analysis_list, conversation_analysis_data, summarization_data, classifier_data, raw_chunks = get_recognition_results(operationId)
 
     return JSONResponse({
         "message": "Operation is complete",
@@ -103,6 +111,10 @@ async def operation_status(operationId: str = Query(default=None)):
             "conversationAnalysis": conversation_analysis_data,
             "summarization": summarization_data,
             "classifierData": classifier_data,
+        },
+        "rawResponse": {
+            "method": "AsyncRecognizer.GetRecognition (gRPC STT v3, server-streaming)",
+            "messages": raw_chunks,
         },
     })
 
@@ -135,7 +147,7 @@ _ALL_CLASSIFIERS = [
 ]
 
 
-def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summary_instruction='', speaker_labeling=False, model_uri_override='', classifiers=''):
+def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summary_instruction='', speaker_labeling=False, model_uri_override='', classifiers='', normalization=True, profanity_filter=False, literary_text=False):
     channel, metadata = _create_grpc_channel()
     stub = stt_service_pb2_grpc.AsyncRecognizerStub(channel)
 
@@ -152,8 +164,13 @@ def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summa
             container_audio=stt_pb2.ContainerAudio(container_audio_type=container_type)
         ),
         text_normalization=stt_pb2.TextNormalizationOptions(
-            text_normalization=stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_ENABLED,
-            literature_text=True
+            text_normalization=(
+                stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_ENABLED
+                if normalization
+                else stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_DISABLED
+            ),
+            profanity_filter=profanity_filter,
+            literature_text=literary_text,
         ),
         audio_processing_type=stt_pb2.RecognitionModelOptions.FULL_DATA,
     )
@@ -199,14 +216,26 @@ def create_recognition_task(audio_bytes, container_type, lang, rate=48000, summa
             properties=[stt_pb2.SummarizationProperty(instruction=summary_instruction)]
         ))
 
+    # Build a human-readable preview of the actual gRPC request (без аудио-байтов).
+    preview_msg = stt_pb2.RecognizeFileRequest()
+    preview_msg.CopyFrom(recognize_request)
+    preview_msg.ClearField('content')
+    req_dict = MessageToDict(preview_msg, preserving_proto_field_name=True)
+    req_dict['content'] = f'<{len(audio_bytes)} bytes audio ({container_type})>'
+    request_preview = {
+        'endpoint': STT_GRPC_ENDPOINT,
+        'method': 'AsyncRecognizer.RecognizeFile (gRPC STT v3)',
+        'request': req_dict,
+    }
+
     try:
         logging.info("Sending RecognizeFile request via gRPC v3")
         operation = stub.RecognizeFile(recognize_request, metadata=metadata)
         logging.info("Operation created: {}".format(operation.id))
-        return operation.id
+        return operation.id, request_preview
     except grpc.RpcError as e:
         logging.error(f"gRPC RecognizeFile failed: code={e.code()}, details={e.details()}")
-        return None
+        return None, None
 
 
 def get_recognition_results(operation_id):
@@ -218,6 +247,7 @@ def get_recognition_results(operation_id):
     conversation_analysis_data = None
     summarization_data = None
     classifier_data = []
+    raw_chunks = []
 
     try:
         logging.info("Fetching recognition results for operation: {}".format(operation_id))
@@ -226,6 +256,7 @@ def get_recognition_results(operation_id):
             metadata=metadata
         ):
             chunk = MessageToDict(response_msg, preserving_proto_field_name=True)
+            raw_chunks.append(chunk)
             channel_tag = chunk.get('channel_tag', '')
 
             if 'final_refinement' in chunk:
@@ -270,4 +301,4 @@ def get_recognition_results(operation_id):
     except grpc.RpcError as e:
         logging.error(f"gRPC GetRecognition failed: code={e.code()}, details={e.details()}")
 
-    return results, speaker_analysis_list, conversation_analysis_data, summarization_data, classifier_data
+    return results, speaker_analysis_list, conversation_analysis_data, summarization_data, classifier_data, raw_chunks

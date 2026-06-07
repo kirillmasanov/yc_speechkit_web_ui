@@ -1,23 +1,43 @@
 # SpeechKit Web UI
 
-<img
-  src="images/web-ui.png"
-  alt="SpeechKit Web UI"
-  title="SpeechKit Web UI"
-  style="display: inline-block; margin: 0 auto; max-width: 600px">
+Демонстрационное веб-приложение для работы с [Yandex SpeechKit](https://aistudio.yandex.ru/ru/ai-speech) через браузер. Позволяет на практике познакомиться с возможностями синтеза и распознавания речи и поэкспериментировать с параметрами запросов.
 
-Данный репозиторий содержит веб-приложение, которое позволяет обращаться к сервису [Yandex SpeechKit](https://aistudio.yandex.ru/ru/ai-speech) и работать с ним через веб-интерфейс.
+Приложение состоит из трёх вкладок:
 
-Приложение позволяет ознакомиться с возможностями асинхронного и потокового распознавания, а также – синтеза речи – с различными параметрами, доступными при распознавании и синтезе:
-- Можно выбрать и проверить различные доступные [голоса](https://aistudio.yandex.ru/docs/ru/speechkit/tts/voices.html);
-- Можно использовать [TTS-разметку](https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html);
-- Доступны возможности [Speaker Labeling](https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html) для моноканального аудио;
-- Добавлены возможности для [суммаризации](https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html) и [классификации](https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis.html);
-- Отображается статистика участников и диалога (длительность речи, паузы, скорость, перебивания).
+- **Синтез речи (TTS)** — озвучивание текста разными голосами и амплуа, с настройкой скорости, тона, громкости и формата; поддержка [TTS-разметки](https://aistudio.yandex.ru/docs/ru/speechkit/tts/markup/tts-markup.html).
+- **Распознавание речи (STT, async)** — асинхронная расшифровка загруженного аудиофайла с [Speaker Labeling](https://aistudio.yandex.ru/docs/ru/speechkit/stt/speaker-labeling.html), [классификаторами](https://aistudio.yandex.ru/docs/ru/speechkit/stt/analysis.html), [LLM-суммаризацией](https://aistudio.yandex.ru/docs/ru/speechkit/stt/llm-results.html) и статистикой диалога (длительность речи, паузы, скорость, перебивания).
+- **Потоковое распознавание (STT, streaming)** — распознавание с микрофона в реальном времени через WebSocket, с нормализацией, классификаторами и LLM-обработкой результата.
 
-Приложение можно развернуть локально при помощи Docker Compose.
+## Быстрый старт
 
-> Потоковый режим распознавания через микрофон доступен только при локальном развертывании через docker compose, так как необходима поддержка WebSockets, недоступная в Serverless Containers.
+Понадобятся [API-ключ](https://yandex.cloud/ru/docs/iam/concepts/authorization/api-key) сервисного аккаунта Yandex Cloud и идентификатор каталога (`folder_id`).
+
+### Локальный запуск (dev)
+
+```bash
+cp .env.example .env          # заполнить YANDEX_API_KEY и YANDEX_FOLDER_ID
+uv sync
+uv run uvicorn app:app --host 0.0.0.0 --port 8080 --reload
+```
+
+### Docker Compose
+
+```bash
+cp .env.example .env          # заполнить YANDEX_API_KEY и YANDEX_FOLDER_ID
+docker compose up --build
+```
+
+После запуска приложение доступно по адресу `http://localhost:8080`.
+
+> Потоковое распознавание через микрофон работает только при локальном развёртывании, так как требует поддержки WebSocket, недоступной в Serverless Containers.
+
+## Переменные окружения
+
+| Переменная | Обязательна | Описание |
+|---|---|---|
+| `YANDEX_API_KEY` | да | API-ключ Yandex Cloud (используется для TTS, STT и потокового распознавания). |
+| `YANDEX_FOLDER_ID` | да | Идентификатор каталога; на его основе строится дефолтный URI модели YandexGPT. |
+| `MODEL_URI` | нет | Явный URI модели YandexGPT для суммаризации. По умолчанию `gpt://<YANDEX_FOLDER_ID>/yandexgpt-5.1`. |
 
 ## Связанные примеры
 

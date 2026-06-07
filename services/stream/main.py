@@ -3,6 +3,7 @@ import json
 import logging
 import os
 
+from google.protobuf.json_format import MessageToDict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 
 import yandex.cloud.ai.stt.v3.stt_pb2 as stt_pb2
@@ -121,7 +122,22 @@ async def stream_recognize(
                 except ValueError:
                     logging.warning(f"Invalid eouPause value: {eouPause}")
 
-            yield stt_pb2.StreamingRequest(session_options=stt_pb2.StreamingOptions(**session_kwargs))
+            streaming_options = stt_pb2.StreamingOptions(**session_kwargs)
+
+            # Отправляем клиенту превью реального gRPC-запроса (для лога событий).
+            try:
+                await websocket.send_text(json.dumps({
+                    'type': 'session',
+                    'request': {
+                        'endpoint': STT_GRPC_ENDPOINT,
+                        'method': 'Recognizer.RecognizeStreaming (gRPC STT v3, первое сообщение)',
+                        'session_options': MessageToDict(streaming_options, preserving_proto_field_name=True),
+                    },
+                }))
+            except Exception as e:
+                logging.warning(f"Failed to send session preview: {e}")
+
+            yield stt_pb2.StreamingRequest(session_options=streaming_options)
 
             try:
                 while True:

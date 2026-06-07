@@ -1,8 +1,11 @@
+import base64
 import grpc
 import io
+import json
 import logging
 import os
 
+from google.protobuf.json_format import MessageToDict
 from yandex.cloud.ai.tts.v3 import tts_pb2
 from yandex.cloud.ai.tts.v3 import tts_service_pb2_grpc
 
@@ -47,16 +50,25 @@ async def tts(request: Request):
     fmt = FORMAT_MAP.get(format_value, FORMAT_MAP['WAV'])
     norm_type = NORM_MAP.get(norm_type_value, NORM_MAP['LUFS'])
 
-    audio_bytes = synthesize(
+    audio_bytes, request_preview = synthesize(
         text_value, voice_value, role_value,
         speed_value, pitch_shift_value, volume_value,
         fmt['container'], norm_type, unsafe_mode_value
     )
 
+    # Превью реального gRPC-запроса передаём в base64-заголовке (тело — аудио).
+    preview_header = base64.b64encode(
+        json.dumps(request_preview, ensure_ascii=False).encode('utf-8')
+    ).decode('ascii')
+
     return Response(
         content=audio_bytes,
         media_type=fmt['mime'],
-        headers={'Content-Disposition': f'inline; filename="audio.{fmt["ext"]}"'},
+        headers={
+            'Content-Disposition': f'inline; filename="audio.{fmt["ext"]}"',
+            'X-Api-Request': preview_header,
+            'Access-Control-Expose-Headers': 'X-Api-Request',
+        },
     )
 
 
@@ -82,6 +94,12 @@ def synthesize(text_value, voice_value, role_value, speed_value, pitch_shift_val
         unsafe_mode=unsafe_mode_value
     )
 
+    request_preview = {
+        'endpoint': config['request_api'],
+        'method': 'Synthesizer.UtteranceSynthesis (gRPC TTS v3)',
+        'request': MessageToDict(request, preserving_proto_field_name=True),
+    }
+
     cred = grpc.ssl_channel_credentials()
     channel = grpc.secure_channel(config['request_api'], cred)
     stub = tts_service_pb2_grpc.SynthesizerStub(channel)
@@ -95,7 +113,7 @@ def synthesize(text_value, voice_value, role_value, speed_value, pitch_shift_val
         audio = io.BytesIO()
         for response in it:
             audio.write(response.audio_chunk.data)
-        return audio.getvalue()
+        return audio.getvalue(), request_preview
     except grpc._channel._Rendezvous as err:
         logging.error(f'gRPC error code={err._state.code}, message={err._state.details}')
         raise err
