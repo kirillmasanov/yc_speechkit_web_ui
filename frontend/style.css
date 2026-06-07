@@ -143,6 +143,18 @@ h5, h6 { margin-top: 20px; margin-bottom: 10px; }
 .tab-description p { margin: 0 0 4px 0; }
 .tab-description p:last-child { margin-bottom: 0; }
 
+.tab-description .doc-links {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.tab-description .doc-links a {
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.tab-description .doc-links a:hover { text-decoration: underline; }
+
 /* ── Form inputs ───────────────────────────────────────── */
 textarea, select, input[type="file"], input[type="number"] {
   width: 100%;
@@ -570,6 +582,22 @@ pre {
 
 .analysis-card h6 { margin: 0 0 8px 0; font-size: 0.9rem; color: var(--text); }
 
+/* LLM result rendering */
+.llm-block { margin-bottom: 16px; }
+.llm-block:last-child { margin-bottom: 0; }
+.llm-block-score { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.llm-score-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.llm-score-value { font-size: 22px; font-weight: 700; color: var(--accent); }
+.llm-block-heading { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; text-transform: capitalize; }
+.llm-text { margin: 0 0 4px 0; font-size: 13px; line-height: 1.6; color: var(--text); }
+.llm-list { margin: 2px 0 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--text); }
+.llm-list li { margin-bottom: 3px; }
+.llm-list-pos li::marker { color: #22a06b; }
+.llm-list-neg li::marker { color: #e2483d; }
+.llm-subsection { border-left: 2px solid var(--border); padding-left: 12px; margin-top: 4px; display: flex; flex-direction: column; gap: 8px; }
+.llm-sub-block {}
+.llm-sub-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+
 /* Speaker/conversation stat grid */
 .stats-speaker-title {
   font-size: 13px;
@@ -859,6 +887,33 @@ pre {
 .stream-badge.badge-green { background: #F0FDF4; color: #16A34A; }
 .stream-badge.badge-blue  { background: var(--accent-light); color: var(--accent); }
 .stream-badge.badge-grey  { background: var(--surface-3); color: var(--text-secondary); }
+
+/* ── Stream recording indicator ────────────────────────── */
+.stream-rec-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.stream-rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #DC2626;
+  animation: stream-rec-pulse 1.2s ease-in-out infinite;
+}
+
+.stream-rec-limit { color: var(--text-muted); }
+
+.stream-rec-indicator.near-limit #streamRecTimer { color: #DC2626; font-weight: 600; }
+
+@keyframes stream-rec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.8); }
+}
 
 /* ── STT classifier chips ──────────────────────────────── */
 .classifier-chips {

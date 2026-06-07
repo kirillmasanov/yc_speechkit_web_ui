@@ -28,10 +28,21 @@ async def stream_recognize(
     summaryInstruction: str = Query(default=''),
     classifiers: str = Query(default=''),
     eouPause: str = Query(default=''),
+    normalization: str = Query(default='true'),
+    profanityFilter: str = Query(default='false'),
+    literaryText: str = Query(default='false'),
 ):
     await websocket.accept()
     logging.info("WebSocket connection established")
     logging.info(f"Language: {lang}, summaryInstruction: {bool(summaryInstruction)}, classifiers: {classifiers}, eouPause: {eouPause}")
+
+    # Query params arrive as strings — treat the usual truthy spellings as True.
+    def _is_true(value: str) -> bool:
+        return value.lower() in ('1', 'true', 'yes', 'on')
+
+    norm_enabled = _is_true(normalization)
+    profanity_filter = _is_true(profanityFilter)
+    literary_text = _is_true(literaryText)
 
     channel = None
 
@@ -50,9 +61,13 @@ async def stream_recognize(
                     )
                 ),
                 text_normalization=stt_pb2.TextNormalizationOptions(
-                    text_normalization=stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_ENABLED,
-                    profanity_filter=True,
-                    literature_text=False
+                    text_normalization=(
+                        stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_ENABLED
+                        if norm_enabled
+                        else stt_pb2.TextNormalizationOptions.TEXT_NORMALIZATION_DISABLED
+                    ),
+                    profanity_filter=profanity_filter,
+                    literature_text=literary_text
                 ),
                 language_restriction=stt_pb2.LanguageRestrictionOptions(
                     restriction_type=stt_pb2.LanguageRestrictionOptions.WHITELIST,
@@ -70,7 +85,8 @@ async def stream_recognize(
                 )
                 logging.info("Summarization enabled for this session")
 
-            if classifiers:
+            # Классификаторы поддерживаются только для ru-RU (см. документацию analysis).
+            if classifiers and lang == 'ru-RU':
                 all_classifiers = [
                     'formal_greeting', 'informal_greeting',
                     'formal_farewell', 'informal_farewell',

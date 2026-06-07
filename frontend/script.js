@@ -35,6 +35,7 @@ var sttLastParams = null;
 // Currently selected LLM model IDs
 var currentLlmModel = '';
 var currentStreamLlmModel = '';
+var currentStreamLang = 'ru-RU';
 
 // STT classifiers
 var STT_CLASSIFIERS = [
@@ -49,6 +50,7 @@ var STT_CLASSIFIERS = [
     { id: 'answerphone',       label: 'Ответ робота',             tooltip: 'Определяет, что ответ дан голосовым ботом или автоответчиком.' },
 ];
 var selectedClassifiers = new Set();
+var selectedStreamClassifiers = new Set();
 
 // Currently playing TTS audio (stopped before each new request/playback)
 let currentAudio = null;
@@ -405,11 +407,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 dropdown.classList.remove('show');
             }
         }
+        if (!event.target.matches('#streamLangDropdown')) {
+            const dropdown = document.getElementById('streamLangDropdownContent');
+            if (dropdown && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        }
         var msDropdown = document.getElementById('classifierMultiselectDropdown');
         if (msDropdown && msDropdown.style.display !== 'none') {
             var msBtn = document.getElementById('classifierMultiselectBtn');
             if (!msBtn.contains(event.target) && !msDropdown.contains(event.target)) {
                 msDropdown.style.display = 'none';
+            }
+        }
+        var streamMsDropdown = document.getElementById('streamClassifierMultiselectDropdown');
+        if (streamMsDropdown && streamMsDropdown.style.display !== 'none') {
+            var streamMsBtn = document.getElementById('streamClassifierMultiselectBtn');
+            if (streamMsBtn && !streamMsBtn.contains(event.target) && !streamMsDropdown.contains(event.target)) {
+                streamMsDropdown.style.display = 'none';
             }
         }
     });
@@ -1221,50 +1236,19 @@ function checkOperationStatus(operationId) {
                             var fenceEnd = new RegExp('\\n?' + '`'.repeat(3) + '\\s*$');
                             responseText = responseText.replace(fenceStart, '').replace(fenceEnd, '').trim();
                             
-                            // Try to parse as JSON and pretty-print it
+                            // Try to parse as JSON and render structured
                             try {
                                 var parsed = JSON.parse(responseText);
                                 if (typeof parsed === 'object' && parsed !== null) {
-                                    // Render each field as a labeled paragraph
-                                    Object.keys(parsed).forEach(function(key) {
-                                        var val = parsed[key];
-                                        var wrapper = document.createElement('div');
-                                        wrapper.style.margin = '0 0 10px 0';
-                                        
-                                        var label = document.createElement('div');
-                                        label.style.fontSize = '0.75rem';
-                                        label.style.fontWeight = '600';
-                                        label.style.color = '#7f8c8d';
-                                        label.style.textTransform = 'uppercase';
-                                        label.style.letterSpacing = '0.5px';
-                                        label.style.marginBottom = '2px';
-                                        label.textContent = key;
-                                        wrapper.appendChild(label);
-                                        
-                                        var content = document.createElement('p');
-                                        content.style.margin = '0';
-                                        content.style.fontSize = '0.85rem';
-                                        content.style.lineHeight = '1.5';
-                                        if (typeof val === 'string') {
-                                            content.textContent = val;
-                                        } else {
-                                            content.style.fontFamily = 'monospace';
-                                            content.style.whiteSpace = 'pre-wrap';
-                                            content.textContent = JSON.stringify(val, null, 2);
-                                        }
-                                        wrapper.appendChild(content);
-                                        
-                                        card.appendChild(wrapper);
-                                    });
+                                    renderLlmJson(parsed, card);
                                 } else {
                                     throw new Error('not an object');
                                 }
                             } catch (e) {
                                 // Not valid JSON — display as plain text
                                 const p = document.createElement('p');
-                                p.style.margin = '0 0 8px 0';
-                                p.style.fontSize = '0.85rem';
-                                p.style.lineHeight = '1.5';
+                                p.className = 'llm-text';
+                                p.style.margin = '0';
                                 p.textContent = responseText;
                                 card.appendChild(p);
                             }
@@ -1382,16 +1366,78 @@ function renderStreamSummary(summaryData) {
 }
 
 // Streaming recognition variables
-let mediaRecorder;
 let websocket;
 let audioContext;
-let audioWorkletNode;
 let isRecording = false;
 let mediaStream;
+let streamTimerInterval = null;
+let streamStartTime = 0;
+
+// SpeechKit streaming session hard limit: 5 minutes of audio.
+const STREAM_MAX_SECONDS = 5 * 60;
 
 function setupStreamRecognition() {
     document.getElementById('eouPauseSlider').addEventListener('input', function() {
         document.getElementById('eouPauseValue').textContent = this.value + ' мс';
+    });
+
+    // Language custom dropdown (same look as the STT tab)
+    buildStreamLangDropdown();
+    updateStreamClassifierAvailability();
+
+    // Normalization sub-options are only meaningful when normalization is on.
+    document.getElementById('streamNormalizationToggle').addEventListener('change', updateStreamNormalizationSubOptions);
+    updateStreamNormalizationSubOptions();
+
+    // Classifier multiselect (mirrors the STT async tab)
+    buildStreamClassifierMultiselect();
+    document.getElementById('streamClassifiersToggleTrack').closest('.raw-text-toggle-label').addEventListener('click', function() {
+        var track = document.getElementById('streamClassifiersToggleTrack');
+        if (track.classList.contains('disabled')) return;
+        var on = track.classList.toggle('active');
+        document.getElementById('streamClassifiersOptions').style.display = on ? '' : 'none';
+        if (on && selectedStreamClassifiers.size === 0) {
+            // Default to all selected — preserves the previous "classifiers=all" behaviour.
+            selectAllStreamClassifiers();
+        } else if (!on) {
+            document.getElementById('streamClassifierMultiselectDropdown').style.display = 'none';
+        }
+    });
+    document.getElementById('streamClassifierMultiselectBtn').addEventListener('click', function() {
+        var dd = document.getElementById('streamClassifierMultiselectDropdown');
+        dd.style.display = dd.style.display === 'none' ? '' : 'none';
+    });
+
+    // Reset streaming recognition parameters to their defaults
+    document.getElementById('resetStreamParamsBtn').addEventListener('click', function() {
+        // Language
+        currentStreamLang = 'ru-RU';
+        document.getElementById('streamLangDropdown').textContent = 'Русский';
+        document.getElementById('streamLangDropdownContent').classList.remove('show');
+
+        // Text normalization (on by default)
+        document.getElementById('streamNormalizationToggle').checked = true;
+        document.getElementById('streamProfanityFilterToggle').checked = false;
+        document.getElementById('streamLiteraryTextToggle').checked = false;
+        updateStreamNormalizationSubOptions();
+
+        // End-of-utterance pause
+        document.getElementById('eouPauseSlider').value = '500';
+        document.getElementById('eouPauseValue').textContent = '500 мс';
+
+        // Classifiers — off + cleared
+        var cTrack = document.getElementById('streamClassifiersToggleTrack');
+        cTrack.classList.remove('active');
+        document.getElementById('streamClassifiersOptions').style.display = 'none';
+        document.getElementById('streamClassifierMultiselectDropdown').style.display = 'none';
+        selectedStreamClassifiers = new Set();
+        updateStreamClassifierBtnText();
+        document.querySelectorAll('#streamClassifierMultiselectDropdown .classifier-multiselect-item').forEach(function(item) {
+            item.classList.remove('selected');
+        });
+
+        // Re-apply ru-RU availability (re-enables classifier toggle)
+        updateStreamClassifierAvailability();
     });
 
     document.getElementById('startStreamBtn').addEventListener('click', startStreaming);
@@ -1401,6 +1447,177 @@ function setupStreamRecognition() {
         document.getElementById('finalText').innerHTML = '';
         document.getElementById('streamSummarySection').innerHTML = '';
     });
+}
+
+var streamLangOptions = [
+    { label: 'Русский',     value: 'ru-RU' },
+    { label: 'Английский',  value: 'en-US' },
+    { label: 'Казахский',   value: 'kk-KZ' },
+    { label: 'Турецкий',    value: 'tr-TR' },
+    { label: 'Узбекский',   value: 'uz-UZ' },
+    { label: 'Немецкий',    value: 'de-DE' },
+    { label: 'Испанский',   value: 'es-ES' },
+    { label: 'Французский', value: 'fr-FR' },
+    { label: 'Итальянский', value: 'it-IT' },
+    { label: 'Польский',    value: 'pl-PL' },
+];
+
+// Build the stream language custom dropdown (same component as the STT tab).
+function buildStreamLangDropdown() {
+    var btn = document.getElementById('streamLangDropdown');
+    var content = document.getElementById('streamLangDropdownContent');
+    if (!btn || !content || content.dataset.built) return;
+    content.dataset.built = '1';
+
+    btn.addEventListener('click', function() {
+        content.classList.toggle('show');
+    });
+
+    streamLangOptions.forEach(function(opt) {
+        var item = document.createElement('a');
+        item.textContent = opt.label;
+        item.onclick = function() {
+            currentStreamLang = opt.value;
+            btn.textContent = opt.label;
+            content.classList.remove('show');
+            updateStreamClassifierAvailability();
+        };
+        content.appendChild(item);
+    });
+}
+
+// Enable the classifiers toggle only for ru-RU; switch it off + disable it otherwise.
+function updateStreamClassifierAvailability() {
+    const lang = currentStreamLang;
+    const track = document.getElementById('streamClassifiersToggleTrack');
+    const isRu = lang === 'ru-RU';
+    track.classList.toggle('disabled', !isRu);
+    if (!isRu) {
+        track.classList.remove('active');
+        document.getElementById('streamClassifiersOptions').style.display = 'none';
+        var dd = document.getElementById('streamClassifierMultiselectDropdown');
+        if (dd) dd.style.display = 'none';
+    }
+}
+
+// Build the stream classifier multiselect items once (same markup as STT async).
+function buildStreamClassifierMultiselect() {
+    var dropdown = document.getElementById('streamClassifierMultiselectDropdown');
+    if (!dropdown || dropdown.dataset.built) return;
+    dropdown.dataset.built = '1';
+
+    var selectAllBtn = document.createElement('div');
+    selectAllBtn.className = 'classifier-select-all';
+    selectAllBtn.textContent = 'Выбрать все';
+    selectAllBtn.addEventListener('click', selectAllStreamClassifiers);
+    dropdown.appendChild(selectAllBtn);
+
+    STT_CLASSIFIERS.forEach(function(clf) {
+        var item = document.createElement('div');
+        item.className = 'classifier-multiselect-item';
+        item.dataset.id = clf.id;
+
+        var check = document.createElement('span');
+        check.className = 'classifier-multiselect-check';
+        check.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        item.appendChild(check);
+
+        var label = document.createElement('span');
+        label.className = 'classifier-multiselect-label';
+        label.textContent = clf.label;
+        item.appendChild(label);
+
+        var help = document.createElement('a');
+        help.className = 'help-link classifier-item-help';
+        help.innerHTML = '?<span class="help-tooltip">' + clf.tooltip + '</span>';
+        item.appendChild(help);
+
+        item.addEventListener('click', function(e) {
+            if (e.target.closest('.help-link')) return;
+            if (selectedStreamClassifiers.has(clf.id)) {
+                selectedStreamClassifiers.delete(clf.id);
+                item.classList.remove('selected');
+            } else {
+                selectedStreamClassifiers.add(clf.id);
+                item.classList.add('selected');
+            }
+            updateStreamClassifierBtnText();
+        });
+
+        dropdown.appendChild(item);
+    });
+}
+
+function selectAllStreamClassifiers() {
+    var dropdown = document.getElementById('streamClassifierMultiselectDropdown');
+    STT_CLASSIFIERS.forEach(function(c) { selectedStreamClassifiers.add(c.id); });
+    if (dropdown) {
+        dropdown.querySelectorAll('.classifier-multiselect-item').forEach(function(el) {
+            el.classList.add('selected');
+        });
+    }
+    updateStreamClassifierBtnText();
+}
+
+function updateStreamClassifierBtnText() {
+    var label = document.getElementById('streamClassifierMultiselectLabel');
+    if (!label) return;
+    var n = selectedStreamClassifiers.size;
+    var total = STT_CLASSIFIERS.length;
+    if (n === 0) label.textContent = 'Выберите классификаторы';
+    else if (n === total) label.textContent = 'Все классификаторы';
+    else label.textContent = n + ' из ' + total + ' выбрано';
+}
+
+// Profanity filter / literary text apply only when normalization is enabled.
+function updateStreamNormalizationSubOptions() {
+    const enabled = document.getElementById('streamNormalizationToggle').checked;
+    const profanity = document.getElementById('streamProfanityFilterToggle');
+    const literary = document.getElementById('streamLiteraryTextToggle');
+    profanity.disabled = !enabled;
+    literary.disabled = !enabled;
+    if (!enabled) {
+        profanity.checked = false;
+        literary.checked = false;
+    }
+}
+
+// Format seconds as MM:SS.
+function formatStreamTime(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function startStreamTimer() {
+    streamStartTime = Date.now();
+    const indicator = document.getElementById('streamRecIndicator');
+    const timerEl = document.getElementById('streamRecTimer');
+    indicator.classList.remove('near-limit');
+    timerEl.textContent = '00:00';
+    indicator.style.display = '';
+
+    streamTimerInterval = setInterval(function() {
+        const elapsed = Math.floor((Date.now() - streamStartTime) / 1000);
+        timerEl.textContent = formatStreamTime(elapsed);
+        // Warn in the last 30 seconds before the hard limit.
+        if (elapsed >= STREAM_MAX_SECONDS - 30) {
+            indicator.classList.add('near-limit');
+        }
+        if (elapsed >= STREAM_MAX_SECONDS) {
+            document.getElementById('partialText').textContent = 'Достигнут лимит сессии (5 минут) — запись остановлена.';
+            stopStreaming();
+        }
+    }, 1000);
+}
+
+function stopStreamTimer() {
+    if (streamTimerInterval) {
+        clearInterval(streamTimerInterval);
+        streamTimerInterval = null;
+    }
+    const indicator = document.getElementById('streamRecIndicator');
+    if (indicator) indicator.style.display = 'none';
 }
 
 async function startStreaming() {
@@ -1415,7 +1632,7 @@ async function startStreaming() {
             } 
         });
         
-        const lang = document.getElementById('streamLanguageSelect').value;
+        const lang = currentStreamLang;
 
         // Clear previous summary
         document.getElementById('streamSummarySection').innerHTML = '';
@@ -1431,13 +1648,26 @@ async function startStreaming() {
             }
             wsUrl += '&llmModel=' + encodeURIComponent(currentStreamLlmModel);
         }
-        const classifiersEnabled = document.getElementById('streamClassifiersToggle').checked;
-        if (classifiersEnabled) {
-            wsUrl += '&classifiers=all';
+        const classifiersEnabled = document.getElementById('streamClassifiersToggleTrack').classList.contains('active');
+        if (classifiersEnabled && selectedStreamClassifiers.size > 0) {
+            const list = Array.from(selectedStreamClassifiers);
+            wsUrl += '&classifiers=' + (list.length === STT_CLASSIFIERS.length ? 'all' : list.join(','));
         }
         const eouPause = document.getElementById('eouPauseSlider').value;
         if (eouPause !== '500') {
             wsUrl += '&eouPause=' + eouPause;
+        }
+
+        // Text normalization options
+        const normEnabled = document.getElementById('streamNormalizationToggle').checked;
+        wsUrl += '&normalization=' + (normEnabled ? 'true' : 'false');
+        if (normEnabled) {
+            if (document.getElementById('streamProfanityFilterToggle').checked) {
+                wsUrl += '&profanityFilter=true';
+            }
+            if (document.getElementById('streamLiteraryTextToggle').checked) {
+                wsUrl += '&literaryText=true';
+            }
         }
         websocket = new WebSocket(wsUrl);
         
@@ -1483,6 +1713,7 @@ async function startStreaming() {
             document.getElementById('startStreamBtn').disabled = true;
             document.getElementById('stopStreamBtn').disabled = false;
             document.getElementById('partialText').textContent = 'Слушаю...';
+            startStreamTimer();
         };
         
         websocket.onmessage = function(event) {
@@ -1610,7 +1841,8 @@ async function startStreaming() {
 
 function stopStreaming() {
     isRecording = false;
-    
+    stopStreamTimer();
+
     if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
         mediaStream = null;
@@ -1865,7 +2097,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (track.classList.contains('disabled')) return;
         var active = track.classList.toggle('active');
         document.getElementById('classifiersOptions').style.display = active ? '' : 'none';
-        if (!active) {
+        if (active && selectedClassifiers.size === 0) {
+            // Select all classifiers by default on first enable.
+            STT_CLASSIFIERS.forEach(function(c) { selectedClassifiers.add(c.id); });
+            document.getElementById('classifierMultiselectDropdown')
+                .querySelectorAll('.classifier-multiselect-item')
+                .forEach(function(el) { el.classList.add('selected'); });
+            updateClassifierBtnText();
+        } else if (!active) {
             document.getElementById('classifierMultiselectDropdown').style.display = 'none';
         }
         sttCheckDirty();
@@ -1954,6 +2193,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('summaryInstructionInput').addEventListener('input', sttCheckDirty);
 
+    var LLM_PRESETS = {
+        summarization: 'Проанализируй текст, полученный из аудиозаписи, и составь краткое, точное и структурированное резюме. Сохрани ключевые идеи, основные факты, важные имена, даты и выводы. Избегай лишних деталей и повторов.\nЕсли в тексте присутствуют разные темы или разделы — выдели их логически (например, с помощью маркированного списка или кратких подзаголовков).\nУкажи общий контекст (например: встреча, лекция, интервью, разговор), если он понятен из текста.\nЕсли в тексте есть неясности, пропуски или шум (например, «неразборчиво», «[пауза]»), проигнорируй их или учти при формулировке, не искажая смысл.\nОбъём резюме — не более 20% от исходного текста, при этом смысл исходного текста должен полностью сохраниться.',
+        translation:   'Ты — профессиональный переводчик. Переведи текст на английский язык c сохранением стиля общения. Перевод должен быть максимально точным и полным.\nЕсли в тексте есть неясности, пропуски или шум (например, «неразборчиво», «[пауза]»), проигнорируй их или учти при формулировке, не искажая смысл.',
+        keyphrases:    'Выдели ключевые фразы текста, полученного из аудиозаписи.\nЕсли в тексте есть неясности, пропуски или шум (например, «неразборчиво», «[пауза]»), проигнорируй их или учти при формулировке, не искажая смысл.',
+        evaluation:    'Проанализируй текст, полученный из аудиозаписи, по следующим критериям: структура диалога, качество коммуникации, грамотность речи, достижение цели, тон общения, наличие конфликтных моментов.\nОцени диалог от 1 до 10, выдели сильные и слабые стороны. Дай рекомендации по улучшению коммуникации.',
+    };
+
+    document.querySelectorAll('[data-llm-preset]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var textarea = document.getElementById('summaryInstructionInput');
+            textarea.value = LLM_PRESETS[this.dataset.llmPreset] || '';
+            sttCheckDirty();
+        });
+    });
+
+    // LLM instruction presets (stream) — reuse the same LLM_PRESETS
+    document.querySelectorAll('[data-stream-llm-preset]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.getElementById('streamSummaryInstructionInput').value =
+                LLM_PRESETS[this.dataset.streamLlmPreset] || '';
+        });
+    });
+
     // LLM model dropdown toggle (stream)
     document.getElementById('streamLlmModelDropdown').addEventListener('click', function() {
         document.getElementById('streamLlmModelDropdownContent').classList.toggle('show');
@@ -1965,6 +2227,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var track = document.getElementById('streamLlmToggleTrack');
         var active = track.classList.toggle('active');
         document.getElementById('streamLlmOptions').style.display = active ? '' : 'none';
+        document.getElementById('streamLlmResultWrapper').style.display = active ? '' : 'none';
         if (active && !streamLlmModelsLoaded) {
             streamLlmModelsLoaded = true;
             loadLlmModels('streamLlmModelDropdown', 'streamLlmModelDropdownContent', function(v) {
@@ -1984,12 +2247,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sttLangDropdown').textContent = 'Русский';
 
         var normEl = document.getElementById('normalizationToggle');
-        normEl.checked = false;
+        normEl.checked = true;
         normEl.disabled = false;
         document.getElementById('profanityFilterToggle').checked = false;
-        document.getElementById('profanityFilterToggle').disabled = true;
+        document.getElementById('profanityFilterToggle').disabled = false;
         document.getElementById('literaryTextToggle').checked = false;
-        document.getElementById('literaryTextToggle').disabled = true;
+        document.getElementById('literaryTextToggle').disabled = false;
 
         document.getElementById('speakerLabelingToggle').checked = false;
         document.getElementById('speakerGroupingToggle').checked = false;
@@ -2089,6 +2352,82 @@ function updateClassifierBtnText() {
     if (n === 0) label.textContent = 'Выберите классификаторы';
     else if (n === total) label.textContent = 'Все классификаторы';
     else label.textContent = n + ' из ' + total + ' выбрано';
+}
+
+function renderLlmJson(parsed, container) {
+    function makeList(items, cls) {
+        var ul = document.createElement('ul');
+        ul.className = 'llm-list' + (cls ? ' ' + cls : '');
+        items.forEach(function(item) {
+            var li = document.createElement('li');
+            li.textContent = typeof item === 'string' ? item : JSON.stringify(item);
+            ul.appendChild(li);
+        });
+        return ul;
+    }
+
+    Object.keys(parsed).forEach(function(key) {
+        var val = parsed[key];
+        var block = document.createElement('div');
+        block.className = 'llm-block';
+
+        if (typeof val === 'number') {
+            // Top-level score
+            block.classList.add('llm-block-score');
+            var scoreLbl = document.createElement('span');
+            scoreLbl.className = 'llm-score-label';
+            scoreLbl.textContent = key;
+            var scoreVal = document.createElement('span');
+            scoreVal.className = 'llm-score-value';
+            scoreVal.textContent = val + ' / 10';
+            block.appendChild(scoreLbl);
+            block.appendChild(scoreVal);
+        } else {
+            var heading = document.createElement('div');
+            heading.className = 'llm-block-heading';
+            heading.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+            block.appendChild(heading);
+
+            if (typeof val === 'string') {
+                var p = document.createElement('p');
+                p.className = 'llm-text';
+                p.textContent = val;
+                block.appendChild(p);
+            } else if (Array.isArray(val)) {
+                block.appendChild(makeList(val, ''));
+            } else if (typeof val === 'object' && val !== null) {
+                var sub = document.createElement('div');
+                sub.className = 'llm-subsection';
+                Object.keys(val).forEach(function(subKey) {
+                    var subVal = val[subKey];
+                    var subBlock = document.createElement('div');
+                    subBlock.className = 'llm-sub-block';
+                    var subLabel = document.createElement('div');
+                    subLabel.className = 'llm-sub-label';
+                    subLabel.textContent = subKey;
+                    subBlock.appendChild(subLabel);
+                    if (typeof subVal === 'string') {
+                        var sp = document.createElement('p');
+                        sp.className = 'llm-text';
+                        sp.textContent = subVal;
+                        subBlock.appendChild(sp);
+                    } else if (Array.isArray(subVal)) {
+                        var cls = subKey === 'сильные стороны' ? 'llm-list-pos'
+                                : subKey === 'слабые стороны'  ? 'llm-list-neg' : '';
+                        subBlock.appendChild(makeList(subVal, cls));
+                    } else if (typeof subVal === 'number') {
+                        var sc = document.createElement('span');
+                        sc.className = 'llm-score-value';
+                        sc.textContent = subVal + ' / 10';
+                        subBlock.appendChild(sc);
+                    }
+                    sub.appendChild(subBlock);
+                });
+                block.appendChild(sub);
+            }
+        }
+        container.appendChild(block);
+    });
 }
 
 function renderSttClassifiers(classifierData, requestedList) {
