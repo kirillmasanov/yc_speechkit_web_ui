@@ -11,6 +11,6 @@ COPY services/ ./services/
 COPY frontend/ ./frontend/
 COPY app.py .
 
-EXPOSE 8080
+EXPOSE 8000
 
 CMD [".venv/bin/python", "app.py"]

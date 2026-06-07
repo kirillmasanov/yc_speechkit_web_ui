@@ -2,7 +2,7 @@
 const STREAM_ENABLED = true;
 
 // Base URL for all API calls — derived from the current page location so the
-// app works both at the root (http://localhost:8080/) and under a path prefix
+// app works both at the root (http://localhost:8000/) and under a path prefix
 // behind a reverse proxy (https://example.com/yc-speechkit-web-ui/).
 const API_BASE = new URL('.', document.baseURI).href;
 

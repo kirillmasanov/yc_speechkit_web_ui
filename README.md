@@ -17,7 +17,7 @@
 ```bash
 cp .env.example .env          # заполнить YANDEX_API_KEY и YANDEX_FOLDER_ID
 uv sync
-uv run uvicorn app:app --host 0.0.0.0 --port 8080 --reload
+uv run uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Docker Compose
@@ -27,7 +27,7 @@ cp .env.example .env          # заполнить YANDEX_API_KEY и YANDEX_FOLD
 docker compose up --build
 ```
 
-После запуска приложение доступно по адресу `http://localhost:8080`.
+После запуска приложение доступно по адресу `http://localhost:8000`.
 
 > Потоковое распознавание через микрофон работает только при локальном развёртывании, так как требует поддержки WebSocket, недоступной в Serverless Containers.
 
