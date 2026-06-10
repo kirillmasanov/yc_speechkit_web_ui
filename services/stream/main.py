@@ -5,6 +5,7 @@ import os
 
 from google.protobuf.json_format import MessageToDict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from starlette.websockets import WebSocketState
 
 import yandex.cloud.ai.stt.v3.stt_pb2 as stt_pb2
 import yandex.cloud.ai.stt.v3.stt_service_pb2_grpc as stt_service_pb2_grpc
@@ -29,6 +30,7 @@ async def stream_recognize(
     summaryInstruction: str = Query(default=''),
     classifiers: str = Query(default=''),
     eouPause: str = Query(default=''),
+    eouSensitivity: str = Query(default='DEFAULT'),
     normalization: str = Query(default='true'),
     profanityFilter: str = Query(default='false'),
     literaryText: str = Query(default='false'),
@@ -108,19 +110,36 @@ async def stream_recognize(
                     )
                     logging.info(f"Classifiers enabled: {requested}")
 
+            # EOU-классификатор: задаём, только если пользователь что-то изменил —
+            # нестандартную паузу или чувствительность HIGH. Иначе используется
+            # серверный дефолт (eou_classifier не передаём).
+            eou_kwargs = {}
             if eouPause:
                 try:
                     pause_ms = int(eouPause)
-                    if 100 <= pause_ms <= 3000:
-                        session_kwargs['eou_classifier'] = stt_pb2.EouClassifierOptions(
-                            default_classifier=stt_pb2.DefaultEouClassifier(
-                                type=stt_pb2.DefaultEouClassifier.DEFAULT,
-                                max_pause_between_words_hint_ms=pause_ms
-                            )
-                        )
-                        logging.info(f"EOU pause set to {pause_ms}ms")
+                    # API ограничивает паузу диапазоном [500, 5000] мс
+                    # (см. ошибку INVALID_ARGUMENT при выходе за границы).
+                    if 500 <= pause_ms <= 5000:
+                        eou_kwargs['max_pause_between_words_hint_ms'] = pause_ms
                 except ValueError:
                     logging.warning(f"Invalid eouPause value: {eouPause}")
+
+            sensitivity = (
+                stt_pb2.DefaultEouClassifier.HIGH
+                if eouSensitivity.upper() == 'HIGH'
+                else stt_pb2.DefaultEouClassifier.DEFAULT
+            )
+
+            if eou_kwargs or sensitivity == stt_pb2.DefaultEouClassifier.HIGH:
+                session_kwargs['eou_classifier'] = stt_pb2.EouClassifierOptions(
+                    default_classifier=stt_pb2.DefaultEouClassifier(
+                        type=sensitivity, **eou_kwargs
+                    )
+                )
+                logging.info(
+                    f"EOU classifier: sensitivity={eouSensitivity.upper()}, "
+                    f"pause={eou_kwargs.get('max_pause_between_words_hint_ms', 'default')}"
+                )
 
             streaming_options = stt_pb2.StreamingOptions(**session_kwargs)
 
@@ -159,6 +178,11 @@ async def stream_recognize(
         )
 
         async for response in call:
+            # Клиент мог закрыть сокет, пока gRPC-стрим ещё отдаёт буфер ответов —
+            # перестаём слать, иначе словим «websocket.send after close» на каждом.
+            if websocket.application_state != WebSocketState.CONNECTED:
+                logging.info("Client disconnected; stopping response forwarding")
+                break
             try:
                 event_type = response.WhichOneof('Event')
                 result = {'type': event_type, 'alternatives': []}
@@ -201,10 +225,18 @@ async def stream_recognize(
                         }
                     logging.info("Summarization result received")
 
-                await websocket.send_text(json.dumps(result))
-
             except Exception as e:
                 logging.error(f"Error processing response: {e}")
+                continue
+
+            try:
+                await websocket.send_text(json.dumps(result))
+            except Exception:
+                # Клиент закрыл сокет раньше, чем пришёл последний ответ
+                # (гонка между receive в audio_generator и этой отправкой).
+                # Это штатно — просто прекращаем пересылку ответов.
+                logging.info("Client disconnected before response could be sent; stopping")
+                break
 
     except grpc.aio.AioRpcError as e:
         logging.error(f"gRPC error: code={e.code()}, details={e.details()}")

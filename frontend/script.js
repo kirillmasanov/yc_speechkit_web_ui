@@ -425,6 +425,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 dropdown.classList.remove('show');
             }
         }
+        if (!event.target.matches('#streamEouSensitivityDropdown')) {
+            const dropdown = document.getElementById('streamEouSensitivityDropdownContent');
+            if (dropdown && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        }
         var msDropdown = document.getElementById('classifierMultiselectDropdown');
         if (msDropdown && msDropdown.style.display !== 'none') {
             var msBtn = document.getElementById('classifierMultiselectBtn');
@@ -1522,6 +1528,7 @@ function setupStreamRecognition() {
 
     // Language custom dropdown (same look as the STT tab)
     buildStreamLangDropdown();
+    buildStreamEouSensitivityDropdown();
     updateStreamClassifierAvailability();
 
     // Normalization sub-options are only meaningful when normalization is on.
@@ -1556,13 +1563,18 @@ function setupStreamRecognition() {
 
         // Text normalization (on by default)
         document.getElementById('streamNormalizationToggle').checked = true;
-        document.getElementById('streamProfanityFilterToggle').checked = false;
-        document.getElementById('streamLiteraryTextToggle').checked = false;
+        document.getElementById('streamProfanityFilterToggle').checked = true;
+        document.getElementById('streamLiteraryTextToggle').checked = true;
         updateStreamNormalizationSubOptions();
 
         // End-of-utterance pause
         document.getElementById('eouPauseSlider').value = '500';
         document.getElementById('eouPauseValue').textContent = '500 мс';
+
+        // EOU sensitivity
+        currentStreamEouSensitivity = 'DEFAULT';
+        document.getElementById('streamEouSensitivityDropdown').textContent = 'Стандартная';
+        document.getElementById('streamEouSensitivityDropdownContent').classList.remove('show');
 
         // Classifiers — off + cleared
         var cTrack = document.getElementById('streamClassifiersToggleTrack');
@@ -1642,6 +1654,36 @@ function buildStreamLangDropdown() {
             btn.textContent = opt.label;
             content.classList.remove('show');
             updateStreamClassifierAvailability();
+        };
+        content.appendChild(item);
+    });
+}
+
+// EOU detector sensitivity (DefaultEouClassifier.type). DEFAULT — conservative,
+// HIGH — faster but more false positives. Default is DEFAULT.
+var currentStreamEouSensitivity = 'DEFAULT';
+var streamEouSensitivityOptions = [
+    { label: 'Стандартная', value: 'DEFAULT' },
+    { label: 'Высокая',     value: 'HIGH' },
+];
+
+function buildStreamEouSensitivityDropdown() {
+    var btn = document.getElementById('streamEouSensitivityDropdown');
+    var content = document.getElementById('streamEouSensitivityDropdownContent');
+    if (!btn || !content || content.dataset.built) return;
+    content.dataset.built = '1';
+
+    btn.addEventListener('click', function() {
+        content.classList.toggle('show');
+    });
+
+    streamEouSensitivityOptions.forEach(function(opt) {
+        var item = document.createElement('a');
+        item.textContent = opt.label;
+        item.onclick = function() {
+            currentStreamEouSensitivity = opt.value;
+            btn.textContent = opt.label;
+            content.classList.remove('show');
         };
         content.appendChild(item);
     });
@@ -1925,6 +1967,33 @@ function logStreamEvent(result) {
     renderStreamLogRow(ev);
 }
 
+// Lock/unlock a settings block: greys it out (pointer-events:none) and sets a
+// real `disabled` on every native control so keyboard navigation can't reach
+// them either. On lock we remember each control's prior `disabled` state and
+// restore it on unlock, so conditionally disabled sub-options (e.g. the
+// normalization sub-toggles, speaker grouping) keep their correct state.
+function setSettingsLocked(containerId, locked) {
+    var box = document.getElementById(containerId);
+    if (!box) return;
+    box.classList.toggle('settings-locked', locked);
+    box.querySelectorAll('input, textarea, button').forEach(function(el) {
+        if (locked) {
+            el.dataset.prevDisabled = el.disabled ? '1' : '0';
+            el.disabled = true;
+        } else {
+            el.disabled = el.dataset.prevDisabled === '1';
+            delete el.dataset.prevDisabled;
+        }
+    });
+}
+
+// Streaming: the gRPC StreamingOptions are sent only in the first message of
+// the stream, so changing language, normalization, classifiers, EOU pause or
+// LLM options mid-session has no effect — lock them while recording.
+function setStreamSettingsLocked(locked) {
+    setSettingsLocked('streamSettings', locked);
+}
+
 async function startStreaming() {
     try {
         // Request microphone access
@@ -1961,6 +2030,9 @@ async function startStreaming() {
         const eouPause = document.getElementById('eouPauseSlider').value;
         if (eouPause !== '500') {
             wsUrl += '&eouPause=' + eouPause;
+        }
+        if (currentStreamEouSensitivity !== 'DEFAULT') {
+            wsUrl += '&eouSensitivity=' + currentStreamEouSensitivity;
         }
 
         // Text normalization options
@@ -2022,6 +2094,7 @@ async function startStreaming() {
             isRecording = true;
             document.getElementById('startStreamBtn').disabled = true;
             document.getElementById('stopStreamBtn').disabled = false;
+            setStreamSettingsLocked(true);
             document.getElementById('partialText').textContent = 'Слушаю...';
             startStreamTimer();
         };
@@ -2150,6 +2223,7 @@ async function startStreaming() {
                 isRecording = false;
                 document.getElementById('startStreamBtn').disabled = false;
                 document.getElementById('stopStreamBtn').disabled = true;
+                setStreamSettingsLocked(false);
             }
         };
         
@@ -2193,7 +2267,8 @@ function stopStreaming() {
     
     document.getElementById('startStreamBtn').disabled = false;
     document.getElementById('stopStreamBtn').disabled = true;
-    
+    setStreamSettingsLocked(false);
+
     const partialText = document.getElementById('partialText');
     if (partialText.textContent === 'Слушаю...') {
         partialText.textContent = '';
@@ -2202,6 +2277,9 @@ function stopStreaming() {
 
 function sttSetLoading(loading) {
     var btn = document.getElementById('sendButtonStt');
+    // Lock the settings while the operation is in flight — the request is
+    // already submitted, so changing params would only mislead.
+    setSettingsLocked('sttSettings', loading);
     if (loading) {
         btn.classList.add('loading');
         btn.disabled = true;
@@ -2569,9 +2647,9 @@ document.addEventListener('DOMContentLoaded', function() {
         var normEl = document.getElementById('normalizationToggle');
         normEl.checked = true;
         normEl.disabled = false;
-        document.getElementById('profanityFilterToggle').checked = false;
+        document.getElementById('profanityFilterToggle').checked = true;
         document.getElementById('profanityFilterToggle').disabled = false;
-        document.getElementById('literaryTextToggle').checked = false;
+        document.getElementById('literaryTextToggle').checked = true;
         document.getElementById('literaryTextToggle').disabled = false;
 
         document.getElementById('speakerLabelingToggle').checked = false;

@@ -1623,3 +1623,12 @@ footer a:hover { color: var(--accent); text-decoration: underline; }
 
 /* Disabled classifier toggle */
 .raw-text-toggle-track.disabled { opacity: 0.4; }
+
+/* Settings locked while a streaming session is in progress —
+   the gRPC StreamingOptions are fixed at session start, so changing
+   them mid-stream would have no effect. */
+#streamSettings.settings-locked { opacity: 0.55; pointer-events: none; }
+
+/* STT async: lock the recognition settings while an operation is in flight
+   (the request is already submitted; changing params would only mislead). */
+#sttSettings.settings-locked { opacity: 0.55; pointer-events: none; }
